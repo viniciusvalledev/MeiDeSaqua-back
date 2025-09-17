@@ -8,7 +8,7 @@ lerna-debug.log*
 .pnpm-debug.log*
 
 # Diretório de dependências
-node_modules
+/node_modules
 
 # Pasta de build do TypeScript
 dist
