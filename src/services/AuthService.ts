@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Usuario, Avaliacao } from '../entities'; // Importando Avaliacao para exclusão em cascata
 import ProfanityFilter from '../utils/ProfanityFilter';
 import EmailService from '../utils/EmailService';
-import { IUpdatePasswordRequest, IUpdateProfileRequest } from '../interfaces/requests'; 
+import { IUpdatePasswordRequest, IUpdateProfileRequest } from   '../interfaces/requests';
 
 class AuthService {
     /**
