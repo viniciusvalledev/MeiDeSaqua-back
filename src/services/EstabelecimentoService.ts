@@ -18,7 +18,7 @@ class EstabelecimentoService {
         const novoEstabelecimento = await Estabelecimento.create({
             ...dto,
             logoUrl: logoUrl,
-        });
+        });a
 
         if (dto.produtosImgBase64 && dto.produtosImgBase64.length > 0) {
             const imagensPromises = dto.produtosImgBase64.map(async (base64Image: string) => {
