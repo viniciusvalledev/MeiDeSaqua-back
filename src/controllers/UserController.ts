@@ -1,12 +1,9 @@
-// src/controllers/UserController.ts
 import { Request, Response } from 'express';
 import AuthService from '../services/AuthService';
 
-// Uma boa prática é estender o tipo Request do Express para incluir 
-// a propriedade 'user' que virá do nosso futuro middleware de autenticação.
 interface AuthenticatedRequest extends Request {
     user?: {
-        id: number;
+        id: number; 
         username: string;
     }
 }
@@ -14,10 +11,10 @@ interface AuthenticatedRequest extends Request {
 class UserController {
     public async updateUserProfile(req: AuthenticatedRequest, res: Response): Promise<Response> {
         try {
-            const username = req.user?.username;
-            if (!username) return res.status(401).json({ message: "Não autorizado" });
+            const userId = req.user?.id; 
+            if (!userId) return res.status(401).json({ message: "Não autorizado" });
 
-            const updatedUser = await AuthService.updateUserProfile(username, req.body);
+            const updatedUser = await AuthService.updateUserProfile(userId, req.body);
             const { password, ...userDTO } = updatedUser.get({ plain: true });
 
             return res.json(userDTO);
@@ -28,10 +25,10 @@ class UserController {
 
     public async deleteUserProfile(req: AuthenticatedRequest, res: Response): Promise<Response> {
         try {
-            const username = req.user?.username;
-            if (!username) return res.status(401).json({ message: "Não autorizado" });
+            const userId = req.user?.id; 
+            if (!userId) return res.status(401).json({ message: "Não autorizado" });
 
-            await AuthService.deleteUser(username);
+            await AuthService.deleteUser(userId);
             return res.json({ message: "Perfil de utilizador excluído com sucesso." });
         } catch (error: any) {
             return res.status(400).json({ message: error.message });
@@ -40,10 +37,10 @@ class UserController {
 
     public async updateUserPassword(req: AuthenticatedRequest, res: Response): Promise<Response> {
         try {
-            const username = req.user?.username;
-            if (!username) return res.status(401).json({ message: "Não autorizado" });
+            const userId = req.user?.id; 
+            if (!userId) return res.status(401).json({ message: "Não autorizado" });
 
-            await AuthService.updateUserPassword(username, req.body);
+            await AuthService.updateUserPassword(userId, req.body);
             return res.json({ message: "Senha alterada com sucesso." });
         } catch (error: any) {
             return res.status(400).json({ message: error.message });

@@ -8,6 +8,7 @@ import EmailService from '../utils/EmailService';
 import { IUpdatePasswordRequest, IUpdateProfileRequest } from '../interfaces/requests';
 
 class AuthService {
+    
     public async cadastrarUsuario(dadosUsuario: any) {
         if (ProfanityFilter.contemPalavrao(dadosUsuario.username)) {
             throw new Error("Você utilizou palavras inapropriadas no nome de utilizador.");
@@ -122,9 +123,9 @@ class AuthService {
         utilizador.resetPasswordTokenExpiry = null;
         await utilizador.save();
     }
-    
-    public async updateUserProfile(currentUsername: string, data: IUpdateProfileRequest) {
-        const utilizador = await Usuario.findOne({ where: { username: currentUsername }});
+
+    public async updateUserProfile(userId: number, data: IUpdateProfileRequest) {
+        const utilizador = await Usuario.findOne({ where: { usuarioId: userId }});
         if (!utilizador) throw new Error("Utilizador não encontrado.");
 
         if (data.nomeCompleto) {
@@ -154,8 +155,8 @@ class AuthService {
         return await utilizador.save();
     }
     
-    public async updateUserPassword(username: string, request: IUpdatePasswordRequest) {
-        const utilizador = await Usuario.findOne({ where: { username } });
+    public async updateUserPassword(userId: number, request: IUpdatePasswordRequest) {
+        const utilizador = await Usuario.findOne({ where: { usuarioId: userId } });
         if (!utilizador) throw new Error("Utilizador não encontrado.");
         
         const isMatch = await bcrypt.compare(request.currentPassword, utilizador.password);
@@ -167,8 +168,8 @@ class AuthService {
         await utilizador.save();
     }
 
-    public async deleteUser(currentUsername: string) {
-        const utilizador = await Usuario.findOne({ where: { username: currentUsername } });
+    public async deleteUser(userId: number) {
+        const utilizador = await Usuario.findOne({ where: { usuarioId: userId } });
         if (!utilizador) throw new Error("Utilizador não encontrado.");
         
         await Avaliacao.destroy({ where: { usuario_id: utilizador.usuarioId } });
