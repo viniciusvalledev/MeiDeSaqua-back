@@ -1,16 +1,13 @@
-// src/services/AuthService.ts
 import { Op } from 'sequelize';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
-import { Usuario, Avaliacao } from '../entities'; // Importando Avaliacao para exclusão em cascata
+import { Usuario, Avaliacao } from '../entities';
 import ProfanityFilter from '../utils/ProfanityFilter';
 import EmailService from '../utils/EmailService';
-import { IUpdatePasswordRequest, IUpdateProfileRequest } from   '../interfaces/requests';
+import { IUpdatePasswordRequest, IUpdateProfileRequest } from '../interfaces/requests';
 
 class AuthService {
-    /**
-     * Regista um novo utilizador no sistema.
-     */
     public async cadastrarUsuario(dadosUsuario: any) {
         if (ProfanityFilter.contemPalavrao(dadosUsuario.username)) {
             throw new Error("Você utilizou palavras inapropriadas no nome de utilizador.");
@@ -43,9 +40,32 @@ class AuthService {
         return dadosSeguros;
     }
 
-    /**
-     * Confirma a conta de um utilizador a partir de um token.
-     */
+    public async login(username: string, pass: string) {
+        const utilizador = await Usuario.findOne({ where: { username } });
+
+        if (!utilizador) {
+            throw new Error("Usuário ou senha inválidos");
+        }
+
+        if (!utilizador.enabled) {
+            throw new Error("Sua conta ainda não foi verificada. Por favor, verifique seu e-mail.");
+        }
+
+        const isMatch = await bcrypt.compare(pass, utilizador.password);
+        if (!isMatch) {
+            throw new Error("Usuário ou senha inválidos");
+        }
+
+        const token = jwt.sign(
+            { id: utilizador.usuarioId, username: utilizador.username },
+            process.env.JWT_SECRET || 'default_secret',
+            { expiresIn: '1h' }
+        );
+
+        const { password, ...dadosSeguros } = utilizador.get({ plain: true });
+        return { user: dadosSeguros, token };
+    }
+
     public async confirmUserAccount(token: string) {
         const utilizador = await Usuario.findOne({ where: { confirmationToken: token } });
 
@@ -58,9 +78,6 @@ class AuthService {
         await utilizador.save();
     }
 
-    /**
-     * Confirma a alteração de e-mail de um utilizador.
-     */
     public async confirmEmailChange(token: string) {
         const utilizador = await Usuario.findOne({ where: { emailChangeToken: token } });
 
@@ -74,16 +91,12 @@ class AuthService {
         await utilizador.save();
     }
 
-    /**
-     * Inicia o processo de redefinição de senha.
-     */
     public async forgotPassword(email: string) {
         const utilizador = await Usuario.findOne({ where: { email } });
 
         if (utilizador) {
             const token = uuidv4();
             utilizador.resetPasswordToken = token;
-            // Define a expiração para 1 hora a partir de agora
             const expiryDate = new Date();
             expiryDate.setHours(expiryDate.getHours() + 1);
             utilizador.resetPasswordTokenExpiry = expiryDate;
@@ -91,12 +104,8 @@ class AuthService {
             await utilizador.save();
             await EmailService.sendPasswordResetEmail(utilizador.email, token);
         }
-        // Nota: Não retornamos erro se o e-mail não existe por segurança.
     }
 
-    /**
-     * Redefine a senha de um utilizador com um novo password.
-     */
     public async resetPassword(token: string, newPassword: string) {
         const utilizador = await Usuario.findOne({ where: { resetPasswordToken: token } });
 
@@ -114,9 +123,6 @@ class AuthService {
         await utilizador.save();
     }
     
-    /**
-     * Atualiza o perfil de um utilizador.
-     */
     public async updateUserProfile(currentUsername: string, data: IUpdateProfileRequest) {
         const utilizador = await Usuario.findOne({ where: { username: currentUsername }});
         if (!utilizador) throw new Error("Utilizador não encontrado.");
@@ -148,9 +154,6 @@ class AuthService {
         return await utilizador.save();
     }
     
-    /**
-     * Atualiza a senha do utilizador.
-     */
     public async updateUserPassword(username: string, request: IUpdatePasswordRequest) {
         const utilizador = await Usuario.findOne({ where: { username } });
         if (!utilizador) throw new Error("Utilizador não encontrado.");
@@ -164,17 +167,12 @@ class AuthService {
         await utilizador.save();
     }
 
-    /**
-     * Exclui o perfil de um utilizador e suas avaliações.
-     */
     public async deleteUser(currentUsername: string) {
         const utilizador = await Usuario.findOne({ where: { username: currentUsername } });
         if (!utilizador) throw new Error("Utilizador não encontrado.");
         
-        // Exclusão em cascata manual das avaliações
         await Avaliacao.destroy({ where: { usuario_id: utilizador.usuarioId } });
         
-        // Exclui o utilizador
         await utilizador.destroy();
     }
 }
