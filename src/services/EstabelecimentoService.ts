@@ -4,7 +4,7 @@ import FileStorageService from '../utils/FileStorageService';
 import sequelize from '../config/database';
 
 class EstabelecimentoService {
-    // ... os outros métodos (cadastrar, etc.) permanecem iguais ...
+
     public async cadastrarEstabelecimentoComImagens(dto: any) {
         if (dto.cnpj && dto.cnpj.trim() !== '') {
             const cnpjExists = await Estabelecimento.findOne({ where: { cnpj: dto.cnpj } });
@@ -18,7 +18,7 @@ class EstabelecimentoService {
         const novoEstabelecimento = await Estabelecimento.create({
             ...dto,
             logoUrl: logoUrl,
-        });a
+        });
 
         if (dto.produtosImgBase64 && dto.produtosImgBase64.length > 0) {
             const imagensPromises = dto.produtosImgBase64.map(async (base64Image: string) => {
@@ -70,9 +70,30 @@ class EstabelecimentoService {
     /**
      * Busca um estabelecimento pelo seu ID, incluindo imagens e média.
      */
-    public async buscarPorId(id: number) {
-        return Estabelecimento.findByPk(id, {
-            include: [{ model: ImagemProduto, as: 'produtosImg' }]
+ public async buscarPorId(id: number) {
+        return Estabelecimento.findOne({
+            where: { estabelecimentoId: id },
+            include: [
+                {
+                    model: ImagemProduto,
+                    as: 'produtosImg',
+                    attributes: [],
+                },
+                {
+                    model: Avaliacao,
+                    as: 'avaliacoes', 
+                    attributes: [],
+                }
+            ],
+            attributes: {
+                include: [
+                    // Adiciona o cálculo da média
+                    [sequelize.fn('AVG', sequelize.col('avaliacoes.nota')), 'media'],
+                    // Adiciona a concatenação das imagens
+                    [sequelize.fn('GROUP_CONCAT', sequelize.col('produtosImg.url')), 'produtosImgUrls']
+                ],
+            },
+            group: ['Estabelecimento.estabelecimento_id'] // Agrupa para o cálculo funcionar
         });
     }
 
