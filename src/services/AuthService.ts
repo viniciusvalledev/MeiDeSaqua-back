@@ -12,6 +12,21 @@ class AuthService {
         if (ProfanityFilter.contemPalavrao(dadosUsuario.username)) {
             throw new Error("Você utilizou palavras inapropriadas no nome de utilizador.");
         }
+         const usernameExistente = await Usuario.findOne({ where: { username: dadosUsuario.username, enabled: true } });
+        if (usernameExistente) {
+            throw new Error("Usuário já cadastrado, use outro e tente novamente.");
+        }
+
+        // 2. Verifica o e-mail
+        const emailExistente = await Usuario.findOne({ where: { email: dadosUsuario.email } });
+        if (emailExistente) {
+            // Se o e-mail já existe e a conta está ativa (enabled: true), bloqueia o cadastro.
+            if (emailExistente.enabled) {
+                throw new Error("Email já cadastrado, use outro e tente novamente.");
+            }
+            // Se o e-mail existe mas a conta não foi confirmada (enabled: false), remove o registro antigo.
+            await emailExistente.destroy();
+        }
 
         const utilizadorExistente = await Usuario.findOne({
             where: { [Op.or]: [{ username: dadosUsuario.username }, { email: dadosUsuario.email }] }
