@@ -8,8 +8,7 @@ class Proprietario extends Model {
   public cpf!: string;
   public contatoProprietario!: string;
   public emailProprietario!: string;
-  
-  // Chave estrangeira para Estabelecimento será adicionada depois
+  public estabelecimentoId!: number;
 }
 
 Proprietario.init({
@@ -38,6 +37,11 @@ Proprietario.init({
     type: DataTypes.STRING,
     allowNull: true,
     field: 'email_proprietario'
+  },
+  // --- CORREÇÃO AQUI ---
+  estabelecimentoId: {
+    type: DataTypes.INTEGER,
+    field: 'estabelecimento_id' // Mapeia para a coluna 'estabelecimento_id' no MySQL
   }
 }, {
   sequelize,

@@ -6,31 +6,35 @@ import Avaliacao from './Avaliacao.entity';
 import ImagemProduto from './ImagemProduto.entity';
 
 // Relacionamento 1-para-1: Proprietario e Estabelecimento
-// Um Proprietario tem um Estabelecimento
-Proprietario.hasOne(Estabelecimento, { foreignKey: 'estabelecimento_id' });
-// Um Estabelecimento pertence a um Proprietario
-Estabelecimento.belongsTo(Proprietario, { foreignKey: 'estabelecimento_id' });
+Proprietario.hasOne(Estabelecimento, { foreignKey: 'estabelecimentoId' });
+Estabelecimento.belongsTo(Proprietario, { foreignKey: 'estabelecimentoId' });
+
+// Relacionamento 1-para-Muitos: Usuario e Avaliacao
+Usuario.hasMany(Avaliacao, { foreignKey: 'usuarioId', as: 'avaliacoes' });
+Avaliacao.belongsTo(Usuario, { foreignKey: 'usuarioId', as: 'usuario' });
+
+// --- CORREÇÃO PRINCIPAL AQUI ---
+// Relacionamento 1-para-Muitos: Estabelecimento e Avaliacao
+// Definimos explicitamente o nome da relação em AMBAS as direções.
+Estabelecimento.hasMany(Avaliacao, { 
+    foreignKey: 'estabelecimentoId',
+    as: 'avaliacoes' // Nome para quando puxamos as avaliações a partir de um Estabelecimento
+});
+Avaliacao.belongsTo(Estabelecimento, { 
+    foreignKey: 'estabelecimentoId',
+    as: 'estabelecimento' // Nome para quando puxamos o estabelecimento a partir de uma Avaliação
+});
+// --- FIM DA CORREÇÃO ---
+
+// Relacionamento 1-para-Muitos: Estabelecimento e ImagemProduto
+Estabelecimento.hasMany(ImagemProduto, { 
+    foreignKey: 'estabelecimentoId',
+    as: 'produtosImg' 
+});
+ImagemProduto.belongsTo(Estabelecimento, { foreignKey: 'estabelecimentoId' });
 
 
-// Um Usuario pode ter várias Avaliações
-Usuario.hasMany(Avaliacao, { foreignKey: 'usuario_id' });
-// Uma Avaliação pertence a um único Usuario
-Avaliacao.belongsTo(Usuario, { foreignKey: 'usuario_id' });
-
-
-// Um Estabelecimento pode ter várias Avaliações
-Estabelecimento.hasMany(Avaliacao, { foreignKey: 'estabelecimento_id' });
-// Uma Avaliação pertence a um único Estabelecimento
-Avaliacao.belongsTo(Estabelecimento, { foreignKey: 'estabelecimento_id' });
-
-
-// Um Estabelecimento pode ter várias Imagens de Produto
-Estabelecimento.hasMany(ImagemProduto, { foreignKey: 'estabelecimento_id' });
-// Uma Imagem de Produto pertence a um único Estabelecimento
-ImagemProduto.belongsTo(Estabelecimento, { foreignKey: 'estabelecimento_id' });
-
-
-// Exportar todos os modelos para serem usados em outros lugares da aplicação
+// Exportar todos os modelos
 export {
     Usuario,
     Estabelecimento,
