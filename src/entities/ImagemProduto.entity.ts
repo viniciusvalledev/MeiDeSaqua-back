@@ -1,4 +1,3 @@
-// src/entities/ImagemProduto.entity.ts
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database';
 
@@ -21,7 +20,7 @@ ImagemProduto.init({
   // --- CORREÇÃO AQUI ---
   estabelecimentoId: {
     type: DataTypes.INTEGER,
-    field: 'estabelecimento_id' // Mapeia para a coluna 'estabelecimento_id' no MySQL
+    field: 'estabelecimento_id'
   }
 }, {
   sequelize,

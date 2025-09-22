@@ -1,4 +1,3 @@
-// src/controllers/EstabelecimentoController.ts
 import { Request, Response } from 'express';
 import EstabelecimentoService from '../services/EstabelecimentoService';
 

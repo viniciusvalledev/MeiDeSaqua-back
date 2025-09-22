@@ -20,9 +20,9 @@ class FileStorageService {
     }
 
     /**
-     * Salva uma imagem codificada em Base64 no disco.
-     * @param base64String A imagem em formato "data:image/png;base64,iVBORw0KGgo..."
-     * @returns O URL público da imagem salva.
+     * 
+     * @param
+     * @returns 
      */
     public async saveBase64(base64String: string): Promise<string | null> {
         if (!base64String || base64String.trim() === '') {

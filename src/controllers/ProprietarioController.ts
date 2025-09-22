@@ -1,4 +1,3 @@
-// src/controllers/ProprietarioController.ts
 import { Request, Response } from 'express';
 import ProprietarioService from '../services/ProprietarioService';
 

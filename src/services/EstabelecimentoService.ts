@@ -36,17 +36,13 @@ class EstabelecimentoService {
         return novoEstabelecimento;
     }
 
-
-    /**
-     * Lista todos os estabelecimentos.
-     */
   public async listarTodos() {
         return Estabelecimento.findAll({
             include: [
                 {
                     model: ImagemProduto,
                     as: 'produtosImg',
-                    attributes: [], // Não selecionamos nenhuma coluna individual de imagem aqui
+                    attributes: [], 
                 },
                 {
                     model: Avaliacao,
@@ -55,7 +51,6 @@ class EstabelecimentoService {
                 }
             ],
             attributes: {
-                // Incluímos todas as colunas da tabela Estabelecimento
                 include: [
                     [sequelize.fn('AVG', sequelize.col('avaliacoes.nota')), 'media'],
                     
@@ -67,9 +62,6 @@ class EstabelecimentoService {
         });
     }
 
-    /**
-     * Busca um estabelecimento pelo seu ID, incluindo imagens e média.
-     */
  public async buscarPorId(id: number) {
         return Estabelecimento.findOne({
             where: { estabelecimentoId: id },
@@ -87,19 +79,14 @@ class EstabelecimentoService {
             ],
             attributes: {
                 include: [
-                    // Adiciona o cálculo da média
                     [sequelize.fn('AVG', sequelize.col('avaliacoes.nota')), 'media'],
-                    // Adiciona a concatenação das imagens
                     [sequelize.fn('GROUP_CONCAT', sequelize.col('produtosImg.url')), 'produtosImgUrls']
                 ],
             },
-            group: ['Estabelecimento.estabelecimento_id'] // Agrupa para o cálculo funcionar
+            group: ['Estabelecimento.estabelecimento_id']
         });
     }
 
-    /**
-     * Busca estabelecimentos por parte do nome fantasia.
-     */
     public async buscarPorNome(nome: string) {
         return Estabelecimento.findAll({
             where: {
@@ -110,10 +97,7 @@ class EstabelecimentoService {
             include: [{ model: ImagemProduto, as: 'produtosImg' }]
         });
     }
-    
-    /**
-     * Altera o status (ativo/inativo) de um estabelecimento.
-     */
+
     public async alterarStatusAtivo(id: number, novoStatus: boolean) {
         const estabelecimento = await Estabelecimento.findByPk(id);
         if (!estabelecimento) {

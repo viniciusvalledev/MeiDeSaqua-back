@@ -1,4 +1,3 @@
-// src/routes/estabelecimento.routes.ts
 import { Router } from 'express';
 import EstabelecimentoController from '../controllers/EstabelecimentoController';
 

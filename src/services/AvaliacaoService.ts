@@ -1,11 +1,7 @@
-// src/services/AvaliacaoService.ts
 import { Avaliacao, Estabelecimento, Usuario } from "../entities";
 import ProfanityFilter from "../utils/ProfanityFilter";
 
 class AvaliacaoService {
-  /**
-   * Submete uma nova avaliação para um estabelecimento.
-   */
   public async submeterAvaliacao(dadosAvaliacao: any, usuarioLogadoId: number) {
     const { nota, comentario, estabelecimentoId } = dadosAvaliacao;
 
@@ -45,9 +41,6 @@ class AvaliacaoService {
     });
   }
 
-  /**
-   * Atualiza uma avaliação existente.
-   */
   public async atualizarAvaliacao(
     avaliacaoId: number,
     dadosAvaliacao: any,
@@ -81,9 +74,6 @@ class AvaliacaoService {
     return await avaliacao.save();
   }
 
-  /**
-   * Exclui uma avaliação.
-   */
   public async excluirAvaliacao(avaliacaoId: number, usuarioLogadoId: number) {
     const avaliacao = await Avaliacao.findByPk(avaliacaoId);
     if (!avaliacao) {
@@ -95,16 +85,13 @@ class AvaliacaoService {
     await avaliacao.destroy();
   }
 
-  /**
-   * Lista todas as avaliações de um estabelecimento específico.
-   */
   public async listarPorEstabelecimentoDTO(estabelecimentoId: number) {
     return Avaliacao.findAll({
       where: { estabelecimentoId },
       include: [
         {
           model: Usuario,
-          as: "usuario", // <-- CORREÇÃO: Adicionado o alias 'usuario'
+          as: "usuario", 
           attributes: {
             exclude: [
               "password",
@@ -114,7 +101,7 @@ class AvaliacaoService {
               "createdAt",
               "updatedAt",
             ],
-          }, // Otimizado para retornar apenas o necessário (nome, foto, etc.)
+          }, 
         },
       ],
     });

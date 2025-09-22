@@ -1,10 +1,6 @@
-// src/services/ProprietarioService.ts
 import { Proprietario } from '../entities';
 
 class ProprietarioService {
-    /**
-     * Cadastra um novo proprietário.
-     */
     public async cadastrarProprietario(dadosProprietario: any) {
         const { cpf } = dadosProprietario;
         if (cpf) {

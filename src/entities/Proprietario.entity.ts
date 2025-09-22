@@ -1,4 +1,3 @@
-// src/entities/Proprietario.entity.ts
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database';
 
@@ -38,10 +37,9 @@ Proprietario.init({
     allowNull: true,
     field: 'email_proprietario'
   },
-  // --- CORREÇÃO AQUI ---
   estabelecimentoId: {
     type: DataTypes.INTEGER,
-    field: 'estabelecimento_id' // Mapeia para a coluna 'estabelecimento_id' no MySQL
+    field: 'estabelecimento_id' 
   }
 }, {
   sequelize,

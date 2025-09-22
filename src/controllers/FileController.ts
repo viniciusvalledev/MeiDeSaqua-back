@@ -1,4 +1,3 @@
-// src/controllers/FileController.ts
 import { Request, Response } from 'express';
 import FileStorageService from '../utils/FileStorageService';
 

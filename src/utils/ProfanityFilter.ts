@@ -1,5 +1,3 @@
-// src/utils/ProfanityFilter.ts
-
 const PALAVRAS_PROIBIDAS: string[] = [
     " anal " , " anus " , " arrombada " , " arrombado " , " babaovo " , " babaca " , " bagos " , " baitola" , " bicha" , " bixa" ,
     " boazuda" , " boceta" , " boiola" , " bolagato" , " boquete" , " bosta" , " brioco" , " bronha" , " buceta" , " bunda" ,

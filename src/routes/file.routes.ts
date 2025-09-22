@@ -1,4 +1,3 @@
-// src/routes/file.routes.ts
 import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
@@ -7,7 +6,7 @@ import FileController from '../controllers/FileController';
 
 const router = Router();
 
-// Configuração do Multer para guardar os ficheiros na pasta 'uploads'
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, path.resolve(__dirname, '..', '..', 'uploads'));
@@ -19,9 +18,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Endpoint para um único ficheiro (para a logo)
+
 router.post('/upload', upload.single('file'), FileController.uploadFile);
-// Endpoint para múltiplos ficheiros (para o carrossel)
+
 router.post('/upload-multiple', upload.array('files'), FileController.uploadMultipleFiles);
 
 export default router;

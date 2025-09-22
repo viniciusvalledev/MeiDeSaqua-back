@@ -1,8 +1,6 @@
-// src/controllers/AvaliacaoController.ts
 import { Request, Response } from 'express';
 import AvaliacaoService from '../services/AvaliacaoService';
 
-// Usamos a mesma interface para garantir que temos os dados do utilizador
 interface AuthenticatedRequest extends Request {
     user?: { 
         id: number;
@@ -16,7 +14,6 @@ class AvaliacaoController {
             const usuarioLogadoId = req.user?.id;
             if (!usuarioLogadoId) return res.status(401).json({ message: "Não autorizado" });
 
-            // Adicionamos o ID do estabelecimento ao corpo da requisição para o serviço
             const dadosAvaliacao = { ...req.body, estabelecimentoId: req.body.estabelecimento.estabelecimentoId };
             
             const novaAvaliacao = await AvaliacaoService.submeterAvaliacao(dadosAvaliacao, usuarioLogadoId);
@@ -46,7 +43,7 @@ class AvaliacaoController {
             if (!usuarioLogadoId) return res.status(401).json({ message: "Não autorizado" });
 
             await AvaliacaoService.excluirAvaliacao(avaliacaoId, usuarioLogadoId);
-            return res.status(204).send(); // Resposta para "No Content"
+            return res.status(204).send();
         } catch (error: any) {
             return res.status(400).json({ message: error.message });
         }

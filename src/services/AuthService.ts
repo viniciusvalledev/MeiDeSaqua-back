@@ -18,14 +18,14 @@ class AuthService {
             throw new Error("Usuário já cadastrado, use outro e tente novamente.");
         }
 
-        // 2. Verifica o e-mail
+
         const emailExistente = await Usuario.findOne({ where: { email: dadosUsuario.email } });
         if (emailExistente) {
-            // Se o e-mail já existe e a conta está ativa (enabled: true), bloqueia o cadastro.
+
             if (emailExistente.enabled) {
                 throw new Error("Email já cadastrado, use outro e tente novamente.");
             }
-            // Se o e-mail existe mas a conta não foi confirmada (enabled: false), remove o registro antigo.
+  
             await emailExistente.destroy();
         }
 

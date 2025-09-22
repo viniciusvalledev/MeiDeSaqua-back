@@ -1,4 +1,3 @@
-// src/controllers/AuthController.ts
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -44,7 +43,6 @@ class AuthController {
                 { expiresIn: '24h' }
             );
             
-            // Remove a senha do objeto antes de enviar a resposta
             const { password: _, ...userDTO } = user.get({ plain: true });
 
             return res.json({ token, user: userDTO });

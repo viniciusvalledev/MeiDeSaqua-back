@@ -1,4 +1,3 @@
-// src/entities/Usuario.entity.ts
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database';
 
@@ -74,7 +73,7 @@ Usuario.init({
 }, {
   sequelize,
   tableName: 'usuarios',
-  timestamps: false // Para não criar as colunas createdAt e updatedAt
+  timestamps: false 
 });
 
 export default Usuario;

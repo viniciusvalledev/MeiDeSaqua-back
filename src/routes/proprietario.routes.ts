@@ -1,4 +1,3 @@
-// src/routes/proprietario.routes.ts
 import { Router } from 'express';
 import ProprietarioController from '../controllers/ProprietarioController';
 
