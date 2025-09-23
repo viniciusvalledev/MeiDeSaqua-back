@@ -17,7 +17,6 @@ class AuthController {
     }
 
     public async login(req: Request, res: Response): Promise<Response> {
-        // Adicionado para depuração: verifica o que o controller está a receber.
         console.log('Dados recebidos no controller:', req.body);
         
         try {
@@ -27,14 +26,12 @@ class AuthController {
                 return res.status(400).json({ message: "Utilizador e senha são obrigatórios." });
             }
 
-            // Lógica de login agora é delegada para o AuthService.
             const data = await AuthService.login(username, password);
             
             return res.status(200).json(data);
 
         } catch (error: any) {
             console.error("Erro no login:", error.message);
-            // Determina o código de status com base na mensagem de erro do serviço.
             if (error.message.includes("inválidos") || error.message.includes("não foi verificada")) {
                 return res.status(401).json({ message: error.message });
             }
@@ -56,7 +53,6 @@ class AuthController {
             await AuthService.forgotPassword(req.body.email);
             return res.json({ message: "Se existir uma conta com o e-mail fornecido, um link de redefinição de senha foi enviado." });
         } catch (error: any) {
-            // Não expõe se o e-mail existe ou não por segurança.
             return res.json({ message: "Se existir uma conta com o e-mail fornecido, um link de redefinição de senha foi enviado." });
         }
     }
