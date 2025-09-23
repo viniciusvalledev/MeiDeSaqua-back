@@ -57,7 +57,14 @@ class AuthService {
     }
 
     public async login(username: string, pass: string) {
-        const utilizador = await Usuario.findOne({ where: { username } });
+        const utilizador = await Usuario.findOne({
+            where: {
+                [Op.or]: [
+                    { username: username },
+                    { email: username }
+                ]
+            }
+        });
 
         if (!utilizador) {
             throw new Error("Usuário ou senha inválidos");

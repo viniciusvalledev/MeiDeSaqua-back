@@ -1,8 +1,5 @@
 import { Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import AuthService from '../services/AuthService';
-import { Usuario } from '../entities';
 
 class AuthController {
     public async cadastrar(req: Request, res: Response): Promise<Response> {
@@ -20,35 +17,27 @@ class AuthController {
     }
 
     public async login(req: Request, res: Response): Promise<Response> {
+        // Adicionado para depuração: verifica o que o controller está a receber.
+        console.log('Dados recebidos no controller:', req.body);
+        
         try {
             const { username, password } = req.body;
-            const user = await Usuario.findOne({ where: { username } });
 
-            if (!user) {
-                return res.status(401).json({ message: "Utilizador ou senha inválidos." });
+            if (!username || !password) {
+                return res.status(400).json({ message: "Utilizador e senha são obrigatórios." });
             }
 
-            const isMatch = await bcrypt.compare(password, user.password);
-            if (!isMatch) {
-                return res.status(401).json({ message: "Utilizador ou senha inválidos." });
-            }
-
-            if (!user.enabled) {
-                return res.status(403).json({ message: "Conta não ativada. Por favor, verifique seu e-mail de confirmação." });
-            }
-
-            const token = jwt.sign(
-                { id: user.usuarioId, username: user.username },
-                process.env.JWT_SECRET as string,
-                { expiresIn: '24h' }
-            );
+            // Lógica de login agora é delegada para o AuthService.
+            const data = await AuthService.login(username, password);
             
-            const { password: _, ...userDTO } = user.get({ plain: true });
-
-            return res.json({ token, user: userDTO });
+            return res.status(200).json(data);
 
         } catch (error: any) {
-            console.error(error);
+            console.error("Erro no login:", error.message);
+            // Determina o código de status com base na mensagem de erro do serviço.
+            if (error.message.includes("inválidos") || error.message.includes("não foi verificada")) {
+                return res.status(401).json({ message: error.message });
+            }
             return res.status(500).json({ message: "Ocorreu um erro inesperado." });
         }
     }
@@ -67,6 +56,7 @@ class AuthController {
             await AuthService.forgotPassword(req.body.email);
             return res.json({ message: "Se existir uma conta com o e-mail fornecido, um link de redefinição de senha foi enviado." });
         } catch (error: any) {
+            // Não expõe se o e-mail existe ou não por segurança.
             return res.json({ message: "Se existir uma conta com o e-mail fornecido, um link de redefinição de senha foi enviado." });
         }
     }
