@@ -1,5 +1,6 @@
 import { Avaliacao, Estabelecimento, Usuario } from "../entities";
 import ProfanityFilter from "../utils/ProfanityFilter";
+import { containsEmoji } from "../utils/validationemoji";
 
 class AvaliacaoService {
   public async submeterAvaliacao(dadosAvaliacao: any, usuarioLogadoId: number) {
@@ -13,6 +14,9 @@ class AvaliacaoService {
     }
     if (ProfanityFilter.contemPalavrao(comentario)) {
       throw new Error("Você utilizou palavras inapropriadas.");
+    }
+    if (containsEmoji(comentario)) {
+      throw new Error("O comentário não pode conter emojis.");
     }
 
     const estabelecimento = await Estabelecimento.findByPk(estabelecimentoId);
@@ -91,7 +95,7 @@ class AvaliacaoService {
       include: [
         {
           model: Usuario,
-          as: "usuario", 
+          as: "usuario",
           attributes: {
             exclude: [
               "password",
@@ -101,7 +105,7 @@ class AvaliacaoService {
               "createdAt",
               "updatedAt",
             ],
-          }, 
+          },
         },
       ],
     });
