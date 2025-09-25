@@ -1,6 +1,6 @@
 import { Avaliacao, Estabelecimento, Usuario } from "../entities";
 import ProfanityFilter from "../utils/ProfanityFilter";
-import { containsEmoji } from "../utils/validationemoji";
+import { containsEmoji } from "../utils/ValidationEmoji";
 
 class AvaliacaoService {
   public async submeterAvaliacao(dadosAvaliacao: any, usuarioLogadoId: number) {

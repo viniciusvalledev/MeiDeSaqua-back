@@ -9,7 +9,7 @@ import {
   IUpdatePasswordRequest,
   IUpdateProfileRequest,
 } from "../interfaces/requests";
-import { containsEmoji } from "../utils/validationemoji";
+import { containsEmoji } from "../utils/ValidationEmoji";
 
 class AuthService {
   public async cadastrarUsuario(dadosUsuario: any) {
