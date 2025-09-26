@@ -1,111 +1,113 @@
-import { Op } from 'sequelize';
-import { Estabelecimento, ImagemProduto, Avaliacao } from '../entities';
-import FileStorageService from '../utils/FileStorageService';
-import sequelize from '../config/database';
+import { Op } from "sequelize";
+import { Estabelecimento, ImagemProduto, Avaliacao } from "../entities";
+import sequelize from "../config/database";
 
 class EstabelecimentoService {
-
-    public async cadastrarEstabelecimentoComImagens(dto: any) {
-        if (dto.cnpj && dto.cnpj.trim() !== '') {
-            const cnpjExists = await Estabelecimento.findOne({ where: { cnpj: dto.cnpj } });
-            if (cnpjExists) {
-                throw new Error("CNPJ já cadastrado no sistema.");
-            }
-        }
-        
-        const logoUrl = dto.logoBase64 ? await FileStorageService.saveBase64(dto.logoBase64) : null;
-
-        const novoEstabelecimento = await Estabelecimento.create({
-            ...dto,
-            logoUrl: logoUrl,
-        });
-
-        if (dto.produtosImgBase64 && dto.produtosImgBase64.length > 0) {
-            const imagensPromises = dto.produtosImgBase64.map(async (base64Image: string) => {
-                const imgUrl = await FileStorageService.saveBase64(base64Image);
-                if (imgUrl) {
-                    return ImagemProduto.create({
-                        url: imgUrl,
-                        estabelecimentoId: novoEstabelecimento.estabelecimentoId
-                    });
-                }
-            });
-            await Promise.all(imagensPromises);
-        }
-        
-        return novoEstabelecimento;
+  public async cadastrarEstabelecimentoComImagens(dto: any) {
+    if (dto.cnpj && dto.cnpj.trim() !== "") {
+      const cnpjExists = await Estabelecimento.findOne({
+        where: { cnpj: dto.cnpj },
+      });
+      if (cnpjExists) {
+        throw new Error("CNPJ já cadastrado no sistema.");
+      }
     }
+
+    const novoEstabelecimento = await Estabelecimento.create({
+      ...dto,
+      logoUrl: dto.logo,
+    });
+
+    if (dto.produtos && dto.produtos.length > 0) {
+      const imagensPromises = dto.produtos.map((urlDaImagem: string) => {
+        return ImagemProduto.create({
+          url: urlDaImagem,
+          estabelecimentoId: novoEstabelecimento.estabelecimentoId,
+        });
+      });
+
+      await Promise.all(imagensPromises);
+    }
+
+    return novoEstabelecimento;
+  }
 
   public async listarTodos() {
-        return Estabelecimento.findAll({
-            include: [
-                {
-                    model: ImagemProduto,
-                    as: 'produtosImg',
-                    attributes: [], 
-                },
-                {
-                    model: Avaliacao,
-                    as: 'avaliacoes', 
-                    attributes: [],
-                }
-            ],
-            attributes: {
-                include: [
-                    [sequelize.fn('AVG', sequelize.col('avaliacoes.nota')), 'media'],
-                    
-                    [sequelize.fn('GROUP_CONCAT', sequelize.col('produtosImg.url')), 'produtosImgUrls']
-                ],
-            },
-            group: ['Estabelecimento.estabelecimento_id'],
-            order: [['estabelecimento_id', 'DESC']]
-        });
-    }
+    return Estabelecimento.findAll({
+      include: [
+        {
+          model: ImagemProduto,
+          as: "produtosImg",
+          attributes: [],
+        },
+        {
+          model: Avaliacao,
+          as: "avaliacoes",
+          attributes: [],
+        },
+      ],
+      attributes: {
+        include: [
+          [sequelize.fn("AVG", sequelize.col("avaliacoes.nota")), "media"],
 
- public async buscarPorId(id: number) {
-        return Estabelecimento.findOne({
-            where: { estabelecimentoId: id },
-            include: [
-                {
-                    model: ImagemProduto,
-                    as: 'produtosImg',
-                    attributes: [],
-                },
-                {
-                    model: Avaliacao,
-                    as: 'avaliacoes', 
-                    attributes: [],
-                }
-            ],
-            attributes: {
-                include: [
-                    [sequelize.fn('AVG', sequelize.col('avaliacoes.nota')), 'media'],
-                    [sequelize.fn('GROUP_CONCAT', sequelize.col('produtosImg.url')), 'produtosImgUrls']
-                ],
-            },
-            group: ['Estabelecimento.estabelecimento_id']
-        });
-    }
+          [
+            sequelize.fn("GROUP_CONCAT", sequelize.col("produtosImg.url")),
+            "produtosImgUrls",
+          ],
+        ],
+      },
+      group: ["Estabelecimento.estabelecimento_id"],
+      order: [["estabelecimento_id", "DESC"]],
+    });
+  }
 
-    public async buscarPorNome(nome: string) {
-        return Estabelecimento.findAll({
-            where: {
-                nomeFantasia: {
-                    [Op.like]: `%${nome}%`
-                }
-            },
-            include: [{ model: ImagemProduto, as: 'produtosImg' }]
-        });
-    }
+  public async buscarPorId(id: number) {
+    return Estabelecimento.findOne({
+      where: { estabelecimentoId: id },
+      include: [
+        {
+          model: ImagemProduto,
+          as: "produtosImg",
+          attributes: [],
+        },
+        {
+          model: Avaliacao,
+          as: "avaliacoes",
+          attributes: [],
+        },
+      ],
+      attributes: {
+        include: [
+          [sequelize.fn("AVG", sequelize.col("avaliacoes.nota")), "media"],
+          [
+            sequelize.fn("GROUP_CONCAT", sequelize.col("produtosImg.url")),
+            "produtosImgUrls",
+          ],
+        ],
+      },
+      group: ["Estabelecimento.estabelecimento_id"],
+    });
+  }
 
-    public async alterarStatusAtivo(id: number, novoStatus: boolean) {
-        const estabelecimento = await Estabelecimento.findByPk(id);
-        if (!estabelecimento) {
-            throw new Error(`Estabelecimento não encontrado com o ID: ${id}`);
-        }
-        estabelecimento.ativo = novoStatus;
-        return await estabelecimento.save();
+  public async buscarPorNome(nome: string) {
+    return Estabelecimento.findAll({
+      where: {
+        nomeFantasia: {
+          [Op.like]: `%${nome}%`,
+        },
+      },
+      include: [{ model: ImagemProduto, as: "produtosImg" }],
+    });
+  }
+
+  public async alterarStatusAtivo(id: number, novoStatus: boolean) {
+    const estabelecimento = await Estabelecimento.findByPk(id);
+    if (!estabelecimento) {
+      throw new Error(`Estabelecimento não encontrado com o ID: ${id}`);
     }
+    estabelecimento.ativo = novoStatus;
+    return await estabelecimento.save();
+  }
 }
 
 export default new EstabelecimentoService();
