@@ -1,6 +1,7 @@
 import { Op } from "sequelize";
 import { Estabelecimento, ImagemProduto, Avaliacao } from "../entities";
 import sequelize from "../config/database";
+import { StatusEstabelecimento } from "../entities/Estabelecimento.entity"; 
 
 class EstabelecimentoService {
   public async cadastrarEstabelecimentoComImagens(dto: any) {
@@ -38,6 +39,10 @@ class EstabelecimentoService {
 
   public async listarTodos() {
     return Estabelecimento.findAll({
+
+      where: {
+        status: StatusEstabelecimento.ATIVO,
+      },
       include: [
         {
           model: ImagemProduto,
@@ -99,6 +104,7 @@ class EstabelecimentoService {
         nomeFantasia: {
           [Op.like]: `%${nome}%`,
         },
+        status: StatusEstabelecimento.ATIVO,
       },
       include: [{ model: ImagemProduto, as: "produtosImg" }],
     });
@@ -110,6 +116,7 @@ class EstabelecimentoService {
       throw new Error(`Estabelecimento não encontrado com o ID: ${id}`);
     }
     estabelecimento.ativo = novoStatus;
+    estabelecimento.status = novoStatus ? StatusEstabelecimento.ATIVO : StatusEstabelecimento.REJEITADO;
     return await estabelecimento.save();
   }
 }
