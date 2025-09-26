@@ -13,19 +13,23 @@ class EstabelecimentoService {
       }
     }
 
+    // 1. separamos a propriedade 'produtos' do resto do objeto 'dto'.
+    const { produtos, ...dadosEstabelecimento } = dto;
+
+    // 2. Agora, criamos o estabelecimento usando apenas os dados que pertencem a ele.
     const novoEstabelecimento = await Estabelecimento.create({
-      ...dto,
-      logoUrl: dto.logo,
+      ...dadosEstabelecimento,
+      logoUrl: dadosEstabelecimento.logo,
     });
 
-    if (dto.produtos && dto.produtos.length > 0) {
-      const imagensPromises = dto.produtos.map((urlDaImagem: string) => {
+    // 3. A lógica para salvar as imagens do portfólio (usando a variável 'produtos') permanece a mesma
+    if (produtos && produtos.length > 0) {
+      const imagensPromises = produtos.map((urlDaImagem: string) => {
         return ImagemProduto.create({
           url: urlDaImagem,
           estabelecimentoId: novoEstabelecimento.estabelecimentoId,
         });
       });
-
       await Promise.all(imagensPromises);
     }
 
