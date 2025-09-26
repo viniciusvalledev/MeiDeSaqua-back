@@ -1,30 +1,27 @@
 import { Request, Response } from "express";
 import EstabelecimentoService from "../services/EstabelecimentoService";
+import { StatusEstabelecimento } from "../entities/Estabelecimento.entity"; 
 
 class EstabelecimentoController {
   public async cadastrar(req: Request, res: Response): Promise<Response> {
     try {
       const dadosDoFormulario = req.body;
-
       const arquivos = req.files as {
         [fieldname: string]: Express.Multer.File[];
       };
-
-      const logoPath = arquivos["logo"]?.[0]?.path;
+      const logoPath = arquivos["logo"]?.[0]?.path.replace(/\\/g, "/");
       const produtosPaths =
-        arquivos["produtos"]?.map((file) => file.path) || [];
-
+        arquivos["produtos"]?.map((file) => file.path.replace(/\\/g, "/")) ||
+        [];
       const dadosCompletos = {
         ...dadosDoFormulario,
         logo: logoPath,
         produtos: produtosPaths,
       };
-
       const novoEstabelecimento =
         await EstabelecimentoService.cadastrarEstabelecimentoComImagens(
           dadosCompletos
         );
-
       return res.status(201).json(novoEstabelecimento);
     } catch (error: any) {
       if (req.files) {
@@ -59,17 +56,21 @@ class EstabelecimentoController {
     try {
       const id = parseInt(req.params.id);
       const estabelecimento = await EstabelecimentoService.buscarPorId(id);
-      if (!estabelecimento) {
+      
+      // CORREÇÃO APLICADA AQUI
+      if (!estabelecimento || estabelecimento.status !== StatusEstabelecimento.ATIVO) {
         return res
           .status(404)
-          .json({ message: "Estabelecimento não encontrado." });
+          .json({ message: "Estabelecimento não encontrado ou não está ativo." });
       }
+
       return res.status(200).json(estabelecimento);
     } catch (error: any) {
       return res.status(500).json({ message: error.message });
     }
   }
 
+  // Esta função é mais para o admin, então pode ser mantida como está.
   public async alterarStatus(req: Request, res: Response): Promise<Response> {
     try {
       const id = parseInt(req.params.id);

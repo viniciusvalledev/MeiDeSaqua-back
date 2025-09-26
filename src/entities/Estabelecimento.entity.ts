@@ -1,6 +1,15 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database';
 
+// Enum para padronizar os status do estabelecimento
+export enum StatusEstabelecimento {
+  PENDENTE_APROVACAO = "pendente_aprovacao",
+  ATIVO = "ativo",
+  PENDENTE_ATUALIZACAO = "pendente_atualizacao",
+  PENDENTE_EXCLUSAO = "pendente_exclusao",
+  REJEITADO = "rejeitado",
+}
+
 class Estabelecimento extends Model {
   public estabelecimentoId!: number;
   public categoria!: string;
@@ -11,13 +20,13 @@ class Estabelecimento extends Model {
   public endereco!: string;
   public descricao!: string;
   public descricaoDiferencial!: string;
-  public especialidade!: string;
   public tagsInvisiveis!: string;
-  public coordenadas!: string;
   public website!: string;
   public instagram!: string;
   public ativo!: boolean;
   public logoUrl!: string;
+  public status!: StatusEstabelecimento;
+  public dados_atualizacao!: object | null;
 }
 
 Estabelecimento.init({
@@ -64,18 +73,10 @@ Estabelecimento.init({
     allowNull: true,
     field: 'descricao_diferencial'
   },
-  especialidade: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
   tagsInvisiveis: {
     type: DataTypes.STRING,
     allowNull: true,
     field: 'tags_invisiveis'
-  },
-  coordenadas: {
-    type: DataTypes.STRING,
-    allowNull: true,
   },
   website: {
     type: DataTypes.STRING,
@@ -88,16 +89,28 @@ Estabelecimento.init({
   ativo: {
     type: DataTypes.BOOLEAN,
     allowNull: true,
+    defaultValue: false 
   },
   logoUrl: {
     type: DataTypes.TEXT,
     allowNull: true,
     field: 'logoUrl'
+  },
+  status: {
+    type: DataTypes.ENUM(...Object.values(StatusEstabelecimento)),
+    allowNull: false,
+    defaultValue: StatusEstabelecimento.PENDENTE_APROVACAO,
+    field: 'status'
+  },
+  dados_atualizacao: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    field: 'dados_atualizacao'
   }
 }, {
   sequelize,
   tableName: 'estabelecimentos',
-  timestamps: false
+  timestamps: true // Habilitar timestamps pode ser útil para rastrear quando as solicitações foram criadas/atualizadas
 });
 
 export default Estabelecimento;
