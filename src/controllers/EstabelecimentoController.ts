@@ -10,9 +10,10 @@ class EstabelecimentoController {
         [fieldname: string]: Express.Multer.File[];
       };
 
-      const logoPath = arquivos["logo"]?.[0]?.path;
+      const logoPath = arquivos["logo"]?.[0]?.path.replace(/\\/g, "/");
       const produtosPaths =
-        arquivos["produtos"]?.map((file) => file.path) || [];
+        arquivos["produtos"]?.map((file) => file.path.replace(/\\/g, "/")) ||
+        [];
 
       const dadosCompletos = {
         ...dadosDoFormulario,
