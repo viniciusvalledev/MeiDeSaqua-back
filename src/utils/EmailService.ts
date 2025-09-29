@@ -16,7 +16,7 @@ class EmailService {
     }
 
     public async sendConfirmationEmail(to: string, token: string): Promise<void> {
-        const confirmationUrl = `http://localhost:3000/confirmar-conta?token=${token}`;
+        const confirmationUrl = `http://172.16.32.199:3000/confirmar-conta?token=${token}`;
         const message = {
             from: `"Meidesaqua" <${process.env.MAIL_USER}>`,
             to: to,
@@ -29,7 +29,7 @@ class EmailService {
     }
     
     public async sendPasswordResetEmail(to: string, token: string): Promise<void> {
-        const resetUrl = `http://localhost:3000/redefinir-senha?token=${token}`;
+        const resetUrl = `http://172.16.32.199:3000/redefinir-senha?token=${token}`;
         const message = {
             from: `"Meidesaqua" <${process.env.MAIL_USER}>`,
             to: to,
@@ -43,7 +43,7 @@ class EmailService {
     }
     
     public async sendEmailChangeConfirmationEmail(to: string, token: string): Promise<void> {
-        const confirmationUrl = `http://localhost:3000/confirmar-novo-email?token=${token}`;
+        const confirmationUrl = `http://172.16.32.199:3000/confirmar-novo-email?token=${token}`;
         const message = {
             from: `"Meidesaqua" <${process.env.MAIL_USER}>`,
             to: to,
