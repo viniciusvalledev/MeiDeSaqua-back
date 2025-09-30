@@ -58,7 +58,6 @@ class EstabelecimentoController {
       const id = parseInt(req.params.id);
       const estabelecimento = await EstabelecimentoService.buscarPorId(id);
 
-      // CORREÇÃO APLICADA AQUI
       if (
         !estabelecimento ||
         estabelecimento.status !== StatusEstabelecimento.ATIVO
@@ -79,7 +78,6 @@ class EstabelecimentoController {
   public async atualizar(req: Request, res: Response): Promise<Response> {
     try {
       const id = parseInt(req.params.id);
-      // Usamos a interface para garantir que áreasAtuacao (e outros campos) sejam aceitos.
       const dadosAtualizacao: ICreateUpdateEstabelecimentoRequest = req.body;
 
       const estabelecimentoAtualizado =
@@ -97,7 +95,6 @@ class EstabelecimentoController {
     }
   }
 
-  // Esta função é mais para o admin, então pode ser mantida como está.
   public async alterarStatus(req: Request, res: Response): Promise<Response> {
     try {
       const id = parseInt(req.params.id);
@@ -113,6 +110,17 @@ class EstabelecimentoController {
         ativo
       );
       return res.status(200).json(estabelecimento);
+    } catch (error: any) {
+      return res.status(404).json({ message: error.message });
+    }
+  }
+
+  // MÉTODO ADICIONADO
+  public async deletar(req: Request, res: Response): Promise<Response> {
+    try {
+      const id = parseInt(req.params.id);
+      await EstabelecimentoService.deletarEstabelecimento(id);
+      return res.status(204).send(); // Resposta 204 No Content
     } catch (error: any) {
       return res.status(404).json({ message: error.message });
     }

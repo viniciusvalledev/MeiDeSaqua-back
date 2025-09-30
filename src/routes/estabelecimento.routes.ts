@@ -13,7 +13,6 @@ const storage = multer.diskStorage({
   },
 });
 
-// 3. Crie a instância do Multer usando a nova configuração de storage
 const upload = multer({ storage: storage });
 
 const router = Router();
@@ -23,10 +22,10 @@ router.get("/buscar", EstabelecimentoController.buscarPorNome);
 router.get("/:id", EstabelecimentoController.buscarPorId);
 router.post("/:id/status", EstabelecimentoController.alterarStatus);
 router.put("/:id", authMiddleware, EstabelecimentoController.atualizar);
+router.delete("/:id", authMiddleware, EstabelecimentoController.deletar); // ROTA ADICIONADA
 
 router.post(
   "/",
-
   upload.fields([
     { name: "logo", maxCount: 1 },
     { name: "produtos", maxCount: 5 },
