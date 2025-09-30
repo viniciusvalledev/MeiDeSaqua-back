@@ -1,7 +1,14 @@
 import { Op } from "sequelize";
 import { Estabelecimento, ImagemProduto, Avaliacao } from "../entities";
 import sequelize from "../config/database";
-import { StatusEstabelecimento } from "../entities/Estabelecimento.entity"; 
+import { StatusEstabelecimento } from "../entities/Estabelecimento.entity";
+import { ICreateUpdateEstabelecimentoRequest } from "../interfaces/requests";
+
+interface CadastrarEstabelecimentoDto
+  extends ICreateUpdateEstabelecimentoRequest {
+  produtos: string[];
+  logo: string;
+}
 
 class EstabelecimentoService {
   public async cadastrarEstabelecimentoComImagens(dto: any) {
@@ -21,6 +28,7 @@ class EstabelecimentoService {
     const novoEstabelecimento = await Estabelecimento.create({
       ...dadosEstabelecimento,
       logoUrl: dadosEstabelecimento.logo,
+      areasAtuacao: dadosEstabelecimento.areasAtuacao,
     });
 
     // 3. A lógica para salvar as imagens do portfólio (usando a variável 'produtos') permanece a mesma
@@ -39,7 +47,6 @@ class EstabelecimentoService {
 
   public async listarTodos() {
     return Estabelecimento.findAll({
-
       where: {
         status: StatusEstabelecimento.ATIVO,
       },
@@ -116,8 +123,27 @@ class EstabelecimentoService {
       throw new Error(`Estabelecimento não encontrado com o ID: ${id}`);
     }
     estabelecimento.ativo = novoStatus;
-    estabelecimento.status = novoStatus ? StatusEstabelecimento.ATIVO : StatusEstabelecimento.REJEITADO;
+    estabelecimento.status = novoStatus
+      ? StatusEstabelecimento.ATIVO
+      : StatusEstabelecimento.REJEITADO;
     return await estabelecimento.save();
+  }
+
+  public async atualizarEstabelecimento(
+    id: number,
+    dadosAtualizacao: ICreateUpdateEstabelecimentoRequest
+  ) {
+    const estabelecimento = await Estabelecimento.findByPk(id);
+
+    if (!estabelecimento) {
+      throw new Error(`Estabelecimento não encontrado com o ID: ${id}`);
+    }
+
+    const dadosLimpos: Partial<Estabelecimento> = dadosAtualizacao;
+
+    await estabelecimento.update(dadosLimpos);
+
+    return estabelecimento;
   }
 }
 

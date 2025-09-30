@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import EstabelecimentoService from "../services/EstabelecimentoService";
-import { StatusEstabelecimento } from "../entities/Estabelecimento.entity"; 
+import { StatusEstabelecimento } from "../entities/Estabelecimento.entity";
+import { ICreateUpdateEstabelecimentoRequest } from "../interfaces/requests";
 
 class EstabelecimentoController {
   public async cadastrar(req: Request, res: Response): Promise<Response> {
@@ -56,17 +57,43 @@ class EstabelecimentoController {
     try {
       const id = parseInt(req.params.id);
       const estabelecimento = await EstabelecimentoService.buscarPorId(id);
-      
+
       // CORREÇÃO APLICADA AQUI
-      if (!estabelecimento || estabelecimento.status !== StatusEstabelecimento.ATIVO) {
+      if (
+        !estabelecimento ||
+        estabelecimento.status !== StatusEstabelecimento.ATIVO
+      ) {
         return res
           .status(404)
-          .json({ message: "Estabelecimento não encontrado ou não está ativo." });
+          .json({
+            message: "Estabelecimento não encontrado ou não está ativo.",
+          });
       }
 
       return res.status(200).json(estabelecimento);
     } catch (error: any) {
       return res.status(500).json({ message: error.message });
+    }
+  }
+
+  public async atualizar(req: Request, res: Response): Promise<Response> {
+    try {
+      const id = parseInt(req.params.id);
+      // Usamos a interface para garantir que áreasAtuacao (e outros campos) sejam aceitos.
+      const dadosAtualizacao: ICreateUpdateEstabelecimentoRequest = req.body;
+
+      const estabelecimentoAtualizado =
+        await EstabelecimentoService.atualizarEstabelecimento(
+          id,
+          dadosAtualizacao
+        );
+
+      return res.status(200).json(estabelecimentoAtualizado);
+    } catch (error: any) {
+      if (error.message.includes("não encontrado")) {
+        return res.status(404).json({ message: error.message });
+      }
+      return res.status(400).json({ message: error.message });
     }
   }
 

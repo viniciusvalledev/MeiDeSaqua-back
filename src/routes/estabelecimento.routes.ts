@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import path from "path";
 import EstabelecimentoController from "../controllers/EstabelecimentoController";
+import { authMiddleware } from "../middlewares/auth.middleware";
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -21,6 +22,7 @@ router.get("/", EstabelecimentoController.listarTodos);
 router.get("/buscar", EstabelecimentoController.buscarPorNome);
 router.get("/:id", EstabelecimentoController.buscarPorId);
 router.post("/:id/status", EstabelecimentoController.alterarStatus);
+router.put("/:id", authMiddleware, EstabelecimentoController.atualizar);
 
 router.post(
   "/",
