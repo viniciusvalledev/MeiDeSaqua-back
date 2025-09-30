@@ -4,12 +4,6 @@ import sequelize from "../config/database";
 import { StatusEstabelecimento } from "../entities/Estabelecimento.entity";
 import { ICreateUpdateEstabelecimentoRequest } from "../interfaces/requests";
 
-interface CadastrarEstabelecimentoDto
-  extends ICreateUpdateEstabelecimentoRequest {
-  produtos: string[];
-  logo: string;
-}
-
 class EstabelecimentoService {
   public async cadastrarEstabelecimentoComImagens(dto: any) {
     if (dto.cnpj && dto.cnpj.trim() !== "") {
@@ -21,17 +15,14 @@ class EstabelecimentoService {
       }
     }
 
-    // 1. separamos a propriedade 'produtos' do resto do objeto 'dto'.
     const { produtos, ...dadosEstabelecimento } = dto;
 
-    // 2. Agora, criamos o estabelecimento usando apenas os dados que pertencem a ele.
     const novoEstabelecimento = await Estabelecimento.create({
       ...dadosEstabelecimento,
       logoUrl: dadosEstabelecimento.logo,
       areasAtuacao: dadosEstabelecimento.areasAtuacao,
     });
 
-    // 3. A lógica para salvar as imagens do portfólio (usando a variável 'produtos') permanece a mesma
     if (produtos && produtos.length > 0) {
       const imagensPromises = produtos.map((urlDaImagem: string) => {
         return ImagemProduto.create({
@@ -65,7 +56,6 @@ class EstabelecimentoService {
       attributes: {
         include: [
           [sequelize.fn("AVG", sequelize.col("avaliacoes.nota")), "media"],
-
           [
             sequelize.fn("GROUP_CONCAT", sequelize.col("produtosImg.url")),
             "produtosImgUrls",
@@ -139,11 +129,19 @@ class EstabelecimentoService {
       throw new Error(`Estabelecimento não encontrado com o ID: ${id}`);
     }
 
-    const dadosLimpos: Partial<Estabelecimento> = dadosAtualizacao;
-
-    await estabelecimento.update(dadosLimpos);
+    await estabelecimento.update(dadosAtualizacao);
 
     return estabelecimento;
+  }
+
+  // MÉTODO ALTERADO PARA HARD DELETE
+  public async deletarEstabelecimento(id: number) {
+    const estabelecimento = await Estabelecimento.findByPk(id);
+    if (!estabelecimento) {
+      throw new Error(`Estabelecimento não encontrado com o ID: ${id}`);
+    }
+    // Deleta o registro permanentemente do banco de dados
+    await estabelecimento.destroy();
   }
 }
 
