@@ -143,6 +143,53 @@ class EstabelecimentoService {
     // Deleta o registro permanentemente do banco de dados
     await estabelecimento.destroy();
   }
+  public async solicitarAtualizacaoPorCnpj(
+    cnpj: string,
+    dadosAtualizacao: object
+  ) {
+    const estabelecimento = await Estabelecimento.findOne({ where: { cnpj } }); //
+
+    if (!estabelecimento) {
+      throw new Error("Estabelecimento não encontrado.");
+    }
+
+    // Regra de negócio: Só permite solicitar atualização se o status for ATIVO.
+    if (estabelecimento.status !== StatusEstabelecimento.ATIVO) {
+      //
+      throw new Error(
+        "Não é possível solicitar atualização para um estabelecimento que não está ativo."
+      );
+    }
+
+    // 1. Salva os dados limpos (sem undefined/null) no campo dados_atualizacao
+    estabelecimento.dados_atualizacao = dadosAtualizacao; //
+
+    // 2. Altera o status para pendente de atualização
+    estabelecimento.status = StatusEstabelecimento.PENDENTE_ATUALIZACAO; //
+
+    return await estabelecimento.save();
+  }
+
+  public async solicitarExclusaoPorCnpj(cnpj: string) {
+    const estabelecimento = await Estabelecimento.findOne({ where: { cnpj } }); //
+
+    if (!estabelecimento) {
+      throw new Error("Estabelecimento não encontrado.");
+    }
+
+    // Regra de negócio: Só permite solicitar exclusão se o status for ATIVO.
+    if (estabelecimento.status !== StatusEstabelecimento.ATIVO) {
+      //
+      throw new Error(
+        "Não é possível solicitar exclusão para um estabelecimento que não está ativo."
+      );
+    }
+
+    // Altera o status para pendente de exclusão
+    estabelecimento.status = StatusEstabelecimento.PENDENTE_EXCLUSAO; //
+
+    return await estabelecimento.save();
+  }
 }
 
 export default new EstabelecimentoService();

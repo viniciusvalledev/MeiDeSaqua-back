@@ -22,7 +22,12 @@ router.get("/buscar", EstabelecimentoController.buscarPorNome);
 router.get("/:id", EstabelecimentoController.buscarPorId);
 router.post("/:id/status", EstabelecimentoController.alterarStatus);
 router.put("/:id", authMiddleware, EstabelecimentoController.atualizar);
-router.delete("/:id", authMiddleware, EstabelecimentoController.deletar); // ROTA ADICIONADA
+router.delete("/:id", authMiddleware, EstabelecimentoController.deletar);
+router.post(
+  "/solicitar-atualizacao",
+  EstabelecimentoController.solicitarAtualizacao
+);
+router.post("/solicitar-exclusao", EstabelecimentoController.solicitarExclusao);
 
 router.post(
   "/",
