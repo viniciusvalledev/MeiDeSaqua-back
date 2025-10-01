@@ -125,6 +125,40 @@ class EstabelecimentoController {
       return res.status(404).json({ message: error.message });
     }
   }
+    public async solicitarAtualizacao(req: Request, res: Response): Promise<Response> {
+    try {
+      const { cnpj, ...dadosAtualizacao } = req.body;
+      if (!cnpj) {
+        return res.status(400).json({ message: "O CNPJ é obrigatório para solicitar uma atualização." });
+      }
+
+      await EstabelecimentoService.solicitarAtualizacaoPorCnpj(cnpj, dadosAtualizacao);
+
+      return res.status(200).json({ message: "Solicitação de atualização enviada para análise." });
+    } catch (error: any) {
+      if (error.message.includes("não encontrado")) {
+        return res.status(404).json({ message: error.message });
+      }
+      return res.status(400).json({ message: error.message });
+    }
+  }
+   public async solicitarExclusao(req: Request, res: Response): Promise<Response> {
+    try {
+      const { cnpj } = req.body;
+      if (!cnpj) {
+        return res.status(400).json({ message: "O CNPJ é obrigatório para solicitar uma exclusão." });
+      }
+
+      await EstabelecimentoService.solicitarExclusaoPorCnpj(cnpj);
+
+      return res.status(200).json({ message: "Solicitação de exclusão enviada para análise." });
+    } catch (error: any) {
+      if (error.message.includes("não encontrado")) {
+        return res.status(404).json({ message: error.message });
+      }
+      return res.status(400).json({ message: error.message });
+    }
+  }
 }
 
 export default new EstabelecimentoController();

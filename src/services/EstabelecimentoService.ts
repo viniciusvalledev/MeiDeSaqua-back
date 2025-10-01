@@ -119,7 +119,7 @@ class EstabelecimentoService {
     return await estabelecimento.save();
   }
 
-  public async atualizarEstabelecimento(
+public async atualizarEstabelecimento(
     id: number,
     dadosAtualizacao: ICreateUpdateEstabelecimentoRequest
   ) {
@@ -128,20 +128,56 @@ class EstabelecimentoService {
     if (!estabelecimento) {
       throw new Error(`Estabelecimento não encontrado com o ID: ${id}`);
     }
+    estabelecimento.dados_atualizacao = dadosAtualizacao;
+    estabelecimento.status = StatusEstabelecimento.PENDENTE_ATUALIZACAO;
 
-    await estabelecimento.update(dadosAtualizacao);
+    await estabelecimento.save();
 
     return estabelecimento;
   }
 
-  // MÉTODO ALTERADO PARA HARD DELETE
   public async deletarEstabelecimento(id: number) {
     const estabelecimento = await Estabelecimento.findByPk(id);
     if (!estabelecimento) {
       throw new Error(`Estabelecimento não encontrado com o ID: ${id}`);
     }
-    // Deleta o registro permanentemente do banco de dados
-    await estabelecimento.destroy();
+    
+    estabelecimento.status = StatusEstabelecimento.PENDENTE_EXCLUSAO;
+    await estabelecimento.save();
+  }
+   public async solicitarAtualizacaoPorCnpj(cnpj: string, dadosAtualizacao: ICreateUpdateEstabelecimentoRequest) {
+    const estabelecimento = await Estabelecimento.findOne({ where: { cnpj } });
+
+    if (!estabelecimento) {
+      throw new Error(`Estabelecimento com CNPJ ${cnpj} não encontrado no sistema.`);
+    }
+
+    // Remove campos vazios para não sobrescrever dados existentes com nada
+    const dadosFiltrados = Object.entries(dadosAtualizacao).reduce((acc, [key, value]) => {
+      if (value !== '' && value !== null && value !== undefined) {
+        acc[key as keyof ICreateUpdateEstabelecimentoRequest] = value;
+      }
+      return acc;
+    }, {} as Partial<ICreateUpdateEstabelecimentoRequest>);
+
+
+    estabelecimento.status = StatusEstabelecimento.PENDENTE_ATUALIZACAO;
+    estabelecimento.dados_atualizacao = dadosFiltrados;
+
+    await estabelecimento.save();
+
+    return estabelecimento;
+  }
+   public async solicitarExclusaoPorCnpj(cnpj: string) {
+    const estabelecimento = await Estabelecimento.findOne({ where: { cnpj } });
+
+    if (!estabelecimento) {
+      throw new Error(`Estabelecimento com CNPJ ${cnpj} não encontrado no sistema.`);
+    }
+
+    estabelecimento.status = StatusEstabelecimento.PENDENTE_EXCLUSAO;
+    await estabelecimento.save();
+    return estabelecimento;
   }
 }
 
