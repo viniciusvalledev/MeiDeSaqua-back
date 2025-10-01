@@ -128,21 +128,24 @@ class EstabelecimentoService {
     if (!estabelecimento) {
       throw new Error(`Estabelecimento não encontrado com o ID: ${id}`);
     }
+    estabelecimento.dados_atualizacao = dadosAtualizacao;
+    estabelecimento.status = StatusEstabelecimento.PENDENTE_ATUALIZACAO;
 
-    await estabelecimento.update(dadosAtualizacao);
+    await estabelecimento.save();
 
     return estabelecimento;
   }
 
-  // MÉTODO ALTERADO PARA HARD DELETE
   public async deletarEstabelecimento(id: number) {
     const estabelecimento = await Estabelecimento.findByPk(id);
     if (!estabelecimento) {
       throw new Error(`Estabelecimento não encontrado com o ID: ${id}`);
     }
-    // Deleta o registro permanentemente do banco de dados
-    await estabelecimento.destroy();
+
+    estabelecimento.status = StatusEstabelecimento.PENDENTE_EXCLUSAO;
+    await estabelecimento.save();
   }
+
   public async solicitarAtualizacaoPorCnpj(
     cnpj: string,
     dadosAtualizacao: object
