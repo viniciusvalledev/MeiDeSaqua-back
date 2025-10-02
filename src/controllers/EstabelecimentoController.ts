@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
 import EstabelecimentoService from "../services/EstabelecimentoService";
 import { StatusEstabelecimento } from "../entities/Estabelecimento.entity";
+import path from "path";
 
 class EstabelecimentoController {
+  
   
   private _handleError = (error: any, res: Response): Response => {
 
@@ -49,32 +51,96 @@ class EstabelecimentoController {
     };
   }
 
-  public cadastrar = async (req: Request, res: Response): Promise<Response> => {
+ public async cadastrar(req: Request, res: Response): Promise<Response> {
     try {
-      const dadosCompletos = this._prepareDadosCompletos(req);
-      const novoEstabelecimento = await EstabelecimentoService.cadastrarEstabelecimentoComImagens(dadosCompletos);
+      const dadosDoFormulario = req.body;
+      const arquivos = req.files as {
+        [fieldname: string]: Express.Multer.File[];
+      };
+      const getRelativePath = (absolutePath: string | undefined): string | undefined => {
+        if (!absolutePath) return undefined;
+        const relativePath = path.relative(process.cwd(), absolutePath);
+        return relativePath.replace(/\\/g, "/");
+      };
+
+      const logoPath = getRelativePath(arquivos["logo"]?.[0]?.path);
+      const produtosPaths =
+        arquivos["produtos"]
+          ?.map((file) => getRelativePath(file.path))
+          .filter(p => p) as string[] || [];
+
+      const dadosCompletos = {
+        ...dadosDoFormulario,
+        logo: logoPath,
+        produtos: produtosPaths,
+      };
+      
+      const novoEstabelecimento =
+        await EstabelecimentoService.cadastrarEstabelecimentoComImagens(
+          dadosCompletos
+        );
+        
       return res.status(201).json(novoEstabelecimento);
     } catch (error: any) {
-      return this._handleError(error, res);
+      if (req.files) {
+      }
+      return res.status(400).json({ message: error.message });
     }
   }
 
-  public solicitarAtualizacao = async (req: Request, res: Response): Promise<Response> => {
+  public async solicitarAtualizacao(req: Request, res: Response): Promise<Response> {
     try {
-      const { cnpj } = req.body;
+      const { cnpj, ...dadosDoFormulario } = req.body;
       if (!cnpj) {
-        return res.status(400).json({ message: "O CNPJ é obrigatório para solicitar uma atualização." });
+        return res.status(400).json({
+          message: "O CNPJ é obrigatório para solicitar uma atualização.",
+        });
       }
 
-      const dadosCompletos = this._prepareDadosCompletos(req);
-      const estabelecimento = await EstabelecimentoService.solicitarAtualizacaoPorCnpj(cnpj, dadosCompletos);
+      const arquivos = req.files as { [fieldname: string]: Express.Multer.File[] };
+      let dadosCompletos: any = { ...dadosDoFormulario };
 
-      return res.status(200).json({
-        message: "Solicitação de atualização enviada para análise.",
-        estabelecimento,
-      });
+      const getRelativePath = (absolutePath: string | undefined): string | undefined => {
+        if (!absolutePath) return undefined;
+        const relativePath = path.relative(process.cwd(), absolutePath);
+        return relativePath.replace(/\\/g, "/");
+      };
+
+      if (arquivos && arquivos["logo"]) {
+        dadosCompletos.logoUrl = getRelativePath(arquivos["logo"][0].path);
+      }
+
+      if (arquivos && arquivos["produtos"]) {
+        dadosCompletos.produtos = arquivos["produtos"]
+          ?.map((file) => getRelativePath(file.path))
+          .filter(p => p) as string[] || [];
+      }
+
+      const dadosLimpos = Object.fromEntries(
+        Object.entries(dadosCompletos).filter(
+          ([, value]) => value !== undefined && value !== null
+        )
+      );
+
+      if (Object.keys(dadosLimpos).length === 0) {
+        return res
+          .status(400)
+          .json({ message: "Nenhum dado válido fornecido para atualização." });
+      }
+
+      await EstabelecimentoService.solicitarAtualizacaoPorCnpj(
+        cnpj,
+        dadosLimpos
+      );
+
+      return res
+        .status(200)
+        .json({ message: "Solicitação de atualização enviada para análise." });
     } catch (error: any) {
-      return this._handleError(error, res);
+      if (error.message.includes("não encontrado")) {
+        return res.status(404).json({ message: error.message });
+      }
+      return res.status(400).json({ message: error.message });
     }
   }
   
