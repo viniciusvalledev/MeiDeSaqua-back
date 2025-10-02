@@ -2,14 +2,14 @@ import { Router } from "express";
 import multer from "multer";
 import path from "path";
 import EstabelecimentoController from "../controllers/EstabelecimentoController";
-import { authMiddleware } from "../middlewares/auth.middleware";
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, "uploads/");
   },
   filename: function (req, file, cb) {
-    cb(null, file.originalname);
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
   },
 });
 
@@ -20,15 +20,6 @@ const router = Router();
 router.get("/", EstabelecimentoController.listarTodos);
 router.get("/buscar", EstabelecimentoController.buscarPorNome);
 router.get("/:id", EstabelecimentoController.buscarPorId);
-router.post("/:id/status", EstabelecimentoController.alterarStatus);
-router.put("/:id", authMiddleware, EstabelecimentoController.atualizar);
-router.delete("/:id", authMiddleware, EstabelecimentoController.deletar);
-router.post(
-  "/solicitar-atualizacao",
-  EstabelecimentoController.solicitarAtualizacao
-);
-router.post("/solicitar-exclusao", EstabelecimentoController.solicitarExclusao);
-
 router.post(
   "/",
   upload.fields([
@@ -37,5 +28,17 @@ router.post(
   ]),
   EstabelecimentoController.cadastrar
 );
+
+router.put(
+  "/solicitar-atualizacao",
+  upload.fields([
+    { name: "logo", maxCount: 1 },
+    { name: "produtos", maxCount: 5 },
+  ]),
+  EstabelecimentoController.solicitarAtualizacao 
+);
+
+router.post("/solicitar-exclusao", EstabelecimentoController.solicitarExclusao);
+router.post("/:id/status", EstabelecimentoController.alterarStatus);
 
 export default router;
