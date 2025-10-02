@@ -122,7 +122,6 @@ class EstabelecimentoController {
       return res.status(404).json({ message: error.message });
     }
   }
-<<<<<<< HEAD
   public async solicitarAtualizacao(
     req: Request,
     res: Response
@@ -156,18 +155,6 @@ class EstabelecimentoController {
       return res
         .status(200)
         .json({ message: "Solicitação de atualização enviada para análise." });
-=======
-    public async solicitarAtualizacao(req: Request, res: Response): Promise<Response> {
-    try {
-      const { cnpj, ...dadosAtualizacao } = req.body;
-      if (!cnpj) {
-        return res.status(400).json({ message: "O CNPJ é obrigatório para solicitar uma atualização." });
-      }
-
-      await EstabelecimentoService.solicitarAtualizacaoPorCnpj(cnpj, dadosAtualizacao);
-
-      return res.status(200).json({ message: "Solicitação de atualização enviada para análise." });
->>>>>>> 682da30899a360869332fce4c4e591c73e61371a
     } catch (error: any) {
       if (error.message.includes("não encontrado")) {
         return res.status(404).json({ message: error.message });
@@ -175,7 +162,6 @@ class EstabelecimentoController {
       return res.status(400).json({ message: error.message });
     }
   }
-<<<<<<< HEAD
 
   public async solicitarExclusao(
     req: Request,
@@ -187,24 +173,13 @@ class EstabelecimentoController {
         return res.status(400).json({
           message: "O CNPJ é obrigatório para solicitar uma exclusão.",
         });
-=======
-   public async solicitarExclusao(req: Request, res: Response): Promise<Response> {
-    try {
-      const { cnpj } = req.body;
-      if (!cnpj) {
-        return res.status(400).json({ message: "O CNPJ é obrigatório para solicitar uma exclusão." });
->>>>>>> 682da30899a360869332fce4c4e591c73e61371a
       }
 
       await EstabelecimentoService.solicitarExclusaoPorCnpj(cnpj);
 
-<<<<<<< HEAD
       return res
         .status(200)
         .json({ message: "Solicitação de exclusão enviada para análise." });
-=======
-      return res.status(200).json({ message: "Solicitação de exclusão enviada para análise." });
->>>>>>> 682da30899a360869332fce4c4e591c73e61371a
     } catch (error: any) {
       if (error.message.includes("não encontrado")) {
         return res.status(404).json({ message: error.message });
