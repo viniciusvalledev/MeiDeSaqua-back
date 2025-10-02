@@ -1,11 +1,27 @@
 import { Router } from "express";
 import multer from "multer";
+import fs from "fs";
 import path from "path";
 import EstabelecimentoController from "../controllers/EstabelecimentoController";
+import { compressImages } from "../middlewares/compression.middleware";
 
+
+const sanitizeFilename = (name: string) => {
+  if (!name) return '';
+  return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+};
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/");
+
+    const { categoria, nomeFantasia } = req.body;
+    const safeCategoria = sanitizeFilename(categoria || 'geral');
+    const safeNomeFantasia = sanitizeFilename(nomeFantasia || 'mei_sem_nome');
+
+    const uploadPath = path.resolve('uploads', safeCategoria, safeNomeFantasia);
+
+    fs.mkdirSync(uploadPath, { recursive: true });
+
+    cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
@@ -26,6 +42,7 @@ router.post(
     { name: "logo", maxCount: 1 },
     { name: "produtos", maxCount: 5 },
   ]),
+  compressImages,
   EstabelecimentoController.cadastrar
 );
 
@@ -35,6 +52,7 @@ router.put(
     { name: "logo", maxCount: 1 },
     { name: "produtos", maxCount: 5 },
   ]),
+  compressImages,
   EstabelecimentoController.solicitarAtualizacao 
 );
 
