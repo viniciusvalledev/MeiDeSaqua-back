@@ -6,18 +6,14 @@ import { StatusEstabelecimento } from "../entities/Estabelecimento.entity";
 class EstabelecimentoService {
   public async cadastrarEstabelecimentoComImagens(dto: any) {
     if (dto.cnpj && dto.cnpj.trim() !== "") {
-      const cnpjExists = await Estabelecimento.findOne({
-        where: { cnpj: dto.cnpj },
-      });
+      const cnpjExists = await Estabelecimento.findOne({ where: { cnpj: dto.cnpj } });
       if (cnpjExists) {
         throw new Error("CNPJ já cadastrado no sistema.");
       }
     }
 
     if (dto.emailEstabelecimento && dto.emailEstabelecimento.trim() !== "") {
-      const emailExists = await Estabelecimento.findOne({
-        where: { emailEstabelecimento: dto.emailEstabelecimento },
-      });
+      const emailExists = await Estabelecimento.findOne({ where: { emailEstabelecimento: dto.emailEstabelecimento } });
       if (emailExists) {
         throw new Error("E-mail já cadastrado no sistema.");
       }
@@ -42,7 +38,14 @@ class EstabelecimentoService {
     return novoEstabelecimento;
   }
   
-  public async solicitarAtualizacaoPorCnpj(cnpj: string, dadosAtualizacao: object) {
+  public async solicitarAtualizacaoPorCnpj(cnpj: string, dadosAtualizacao: any) {
+    if (dadosAtualizacao.descricao && dadosAtualizacao.descricao.length > 500) {
+        throw new Error("Data too long for column 'descricao'");
+    }
+    if (dadosAtualizacao.descricaoDiferencial && dadosAtualizacao.descricaoDiferencial.length > 130) {
+        throw new Error("Data too long for column 'descricao_diferencial'");
+    }
+
     const estabelecimento = await Estabelecimento.findOne({ where: { cnpj } });
 
     if (!estabelecimento) {
@@ -50,15 +53,15 @@ class EstabelecimentoService {
     }
 
     if (estabelecimento.status !== StatusEstabelecimento.ATIVO) {
-      throw new Error(
-        "Não é possível solicitar atualização para um estabelecimento que não está ativo."
-      );
+      throw new Error("Não é possível solicitar atualização para um estabelecimento que não está ativo.");
     }
+    
+    const { cnpj: _, ...dadosLimpos } = dadosAtualizacao;
 
-    estabelecimento.dados_atualizacao = dadosAtualizacao;
+    estabelecimento.dados_atualizacao = dadosLimpos;
     estabelecimento.status = StatusEstabelecimento.PENDENTE_ATUALIZACAO;
 
-    return await estabelecimento.save();
+    return await estabelecimento.save({ fields: ["dados_atualizacao", "status"] });
   }
 
   public async solicitarExclusaoPorCnpj(cnpj: string) {
@@ -69,21 +72,17 @@ class EstabelecimentoService {
     }
 
     if (estabelecimento.status !== StatusEstabelecimento.ATIVO) {
-      throw new Error(
-        "Não é possível solicitar exclusão para um estabelecimento que não está ativo."
-      );
+      throw new Error("Não é possível solicitar exclusão para um estabelecimento que não está ativo.");
     }
     
     estabelecimento.status = StatusEstabelecimento.PENDENTE_EXCLUSAO;
 
-    return await estabelecimento.save();
+    return await estabelecimento.save({ fields: ["dados_atualizacao", "status"] });
   }
 
   public async listarTodos() {
     return Estabelecimento.findAll({
-      where: {
-        status: StatusEstabelecimento.ATIVO,
-      },
+      where: { status: StatusEstabelecimento.ATIVO },
       include: [
         { model: ImagemProduto, as: "produtosImg", attributes: [] },
         { model: Avaliacao, as: "avaliacoes", attributes: [] },
@@ -91,10 +90,7 @@ class EstabelecimentoService {
       attributes: {
         include: [
           [sequelize.fn("AVG", sequelize.col("avaliacoes.nota")), "media"],
-          [
-            sequelize.fn("GROUP_CONCAT", sequelize.col("produtosImg.url")),
-            "produtosImgUrls",
-          ],
+          [sequelize.fn("GROUP_CONCAT", sequelize.col("produtosImg.url")), "produtosImgUrls"],
         ],
       },
       group: ["Estabelecimento.estabelecimento_id"],
@@ -112,10 +108,7 @@ class EstabelecimentoService {
       attributes: {
         include: [
           [sequelize.fn("AVG", sequelize.col("avaliacoes.nota")), "media"],
-          [
-            sequelize.fn("GROUP_CONCAT", sequelize.col("produtosImg.url")),
-            "produtosImgUrls",
-          ],
+          [sequelize.fn("GROUP_CONCAT", sequelize.col("produtosImg.url")), "produtosImgUrls"],
         ],
       },
       group: ["Estabelecimento.estabelecimento_id"],
@@ -138,8 +131,8 @@ class EstabelecimentoService {
       throw new Error(`Estabelecimento não encontrado com o ID: ${id}`);
     }
     estabelecimento.ativo = novoStatus;
-
     if (!novoStatus && estabelecimento.status === StatusEstabelecimento.ATIVO) {
+        // Lógica futura pode ser adicionada aqui
     }
     return await estabelecimento.save();
   }

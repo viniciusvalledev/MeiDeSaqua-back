@@ -15,7 +15,7 @@ dist
 .build
 
 # Arquivos de ambiente
-.env
+.env*
 .env.local
 .env.development.local
 
