@@ -1,9 +1,37 @@
 import { Request, Response } from "express";
 import EstabelecimentoService from "../services/EstabelecimentoService";
 import { StatusEstabelecimento } from "../entities/Estabelecimento.entity";
+import fs from "fs/promises"; // Importado para manipulação de arquivos (rollback)
 import path from "path";
 
 class EstabelecimentoController {
+  /**
+   * Helper function para deletar arquivos enviados pelo Multer em caso de falha.
+   */
+  private _deleteUploadedFilesOnFailure = async (req: Request) => {
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    if (!files) return;
+
+    const filesToDelete: Express.Multer.File[] = [];
+    Object.values(files).forEach((fileArray) => {
+      // Multer retorna um array de arquivos para cada campo de upload
+      filesToDelete.push(...fileArray);
+    });
+
+    // Deleta todos os arquivos que foram salvos pelo Multer
+    await Promise.all(
+      filesToDelete.map((file) => {
+        // file.path contém o caminho completo do arquivo salvo pelo Multer
+        return fs.unlink(file.path).catch((err) => {
+          // Loga o erro, mas não interrompe a operação para os outros arquivos
+          console.error(
+            `Falha ao deletar arquivo ${file.path} durante rollback: ${err.message}`
+          );
+        });
+      })
+    );
+  };
+
   private _handleError = (error: any, res: Response): Response => {
     if (error.message === "E-mail já cadastrado no sistema.") {
       return res.status(400).json({ message: error.message });
@@ -50,20 +78,22 @@ class EstabelecimentoController {
       [fieldname: string]: Express.Multer.File[];
     };
 
+    // Note: Multer já salva os arquivos. Aqui apenas coletamos os caminhos.
     const logoPath = arquivos["logo"]?.[0]?.path.replace(/\\/g, "/");
     const produtosPaths =
       arquivos["produtos"]?.map((file) => file.path.replace(/\\/g, "/")) || [];
+    // CCMEI ADICIONADO: Garantindo que o caminho seja coletado
     const ccmeiPath = arquivos["ccmei"]?.[0]?.path.replace(/\\/g, "/");
 
     return {
       ...dadosDoFormulario,
       ...(logoPath && { logo: logoPath }),
       ...(produtosPaths.length > 0 && { produtos: produtosPaths }),
-      ...(ccmeiPath && { ccmei: ccmeiPath }),
+      ...(ccmeiPath && { ccmei: ccmeiPath }), // CCMEI ADICIONADO
     };
   };
 
-  public async cadastrar(req: Request, res: Response): Promise<Response> {
+  public cadastrar = async (req: Request, res: Response): Promise<Response> => {
     try {
       const dadosCompletos = this._prepareDadosCompletos(req);
       const novoEstabelecimento =
@@ -72,73 +102,46 @@ class EstabelecimentoController {
         );
       return res.status(201).json(novoEstabelecimento);
     } catch (error: any) {
-      if (req.files) {
-      }
-      return res.status(400).json({ message: error.message });
+      // ROLLBACK: Deleta os arquivos salvos se a inserção no banco falhar.
+      await this._deleteUploadedFilesOnFailure(req);
+      return this._handleError(error, res);
     }
-  }
+  };
 
   public solicitarAtualizacao = async (
     req: Request,
     res: Response
   ): Promise<Response> => {
     try {
-      const { cnpj, ...dadosDoFormulario } = req.body;
+      const { cnpj } = req.body;
       if (!cnpj) {
         return res.status(400).json({
           message: "O CNPJ é obrigatório para solicitar uma atualização.",
         });
       }
 
-      const arquivos = req.files as {
-        [fieldname: string]: Express.Multer.File[];
-      };
-      let dadosCompletos: any = { ...dadosDoFormulario };
+      // Prepara os dados do formulário e dos arquivos de upload (logo, produtos)
+      const dadosCompletos = this._prepareDadosCompletos(req);
 
-      const getRelativePath = (
-        absolutePath: string | undefined
-      ): string | undefined => {
-        if (!absolutePath) return undefined;
-        const relativePath = path.relative(process.cwd(), absolutePath);
-        return relativePath.replace(/\\/g, "/");
-      };
-
-      if (arquivos && arquivos["logo"]) {
-        dadosCompletos.logoUrl = getRelativePath(arquivos["logo"][0].path);
+      // O arquivo ccmei NUNCA deve ser atualizado aqui, então garantimos sua exclusão
+      if (dadosCompletos.ccmei) {
+        delete dadosCompletos.ccmei;
       }
 
-      if (arquivos && arquivos["produtos"]) {
-        dadosCompletos.produtos =
-          (arquivos["produtos"]
-            ?.map((file) => getRelativePath(file.path))
-            .filter((p) => p) as string[]) || [];
-      }
+      const estabelecimento =
+        await EstabelecimentoService.solicitarAtualizacaoPorCnpj(
+          cnpj,
+          dadosCompletos
+        );
 
-      const dadosLimpos = Object.fromEntries(
-        Object.entries(dadosCompletos).filter(
-          ([, value]) => value !== undefined && value !== null
-        )
-      );
-
-      if (Object.keys(dadosLimpos).length === 0) {
-        return res
-          .status(400)
-          .json({ message: "Nenhum dado válido fornecido para atualização." });
-      }
-
-      await EstabelecimentoService.solicitarAtualizacaoPorCnpj(
-        cnpj,
-        dadosLimpos
-      );
-
-      return res
-        .status(200)
-        .json({ message: "Solicitação de atualização enviada para análise." });
+      return res.status(200).json({
+        message: "Solicitação de atualização enviada para análise.",
+        estabelecimento,
+      });
     } catch (error: any) {
-      if (error.message.includes("não encontrado")) {
-        return res.status(404).json({ message: error.message });
-      }
-      return res.status(400).json({ message: error.message });
+      // ROLLBACK: Deleta os arquivos salvos se a atualização falhar.
+      await this._deleteUploadedFilesOnFailure(req);
+      return this._handleError(error, res);
     }
   };
 
