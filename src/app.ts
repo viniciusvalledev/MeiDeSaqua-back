@@ -14,7 +14,6 @@ import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
 import avaliacaoRoutes from "./routes/avaliacao.routes";
 import estabelecimentoRoutes from "./routes/estabelecimento.routes";
-import proprietarioRoutes from "./routes/proprietario.routes";
 import fileRoutes from "./routes/file.routes";
 import adminRoutes from "./routes/admin.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
@@ -45,7 +44,6 @@ sequelize
 
 app.use("/api/auth", authRoutes);
 app.use("/api/estabelecimentos", estabelecimentoRoutes);
-app.use("/api/proprietarios", proprietarioRoutes);
 app.use("/api/avaliacoes", avaliacaoRoutes);
 app.use("/api/files", fileRoutes);
 

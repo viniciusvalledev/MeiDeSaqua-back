@@ -14,12 +14,16 @@ class EstabelecimentoController {
 
     const filesToDelete: Express.Multer.File[] = [];
     Object.values(files).forEach((fileArray) => {
+      // Multer retorna um array de arquivos para cada campo de upload
       filesToDelete.push(...fileArray);
     });
 
+    // Deleta todos os arquivos que foram salvos pelo Multer
     await Promise.all(
       filesToDelete.map((file) => {
+        // file.path contém o caminho completo do arquivo salvo pelo Multer
         return fs.unlink(file.path).catch((err) => {
+          // Loga o erro, mas não interrompe a operação para os outros arquivos
           console.error(
             `Falha ao deletar arquivo ${file.path} durante rollback: ${err.message}`
           );
@@ -69,21 +73,27 @@ class EstabelecimentoController {
   };
 
   private _prepareDadosCompletos = (req: Request): any => {
+    // A constante 'dadosDoFormulario' já captura TODOS os campos do body,
+    // incluindo os novos 'nomeResponsavel' e 'cpfResponsavel' que virão do frontend.
     const dadosDoFormulario = req.body;
     const arquivos = req.files as {
       [fieldname: string]: Express.Multer.File[];
     };
 
+    // Note: Multer já salva os arquivos. Aqui apenas coletamos os caminhos.
     const logoPath = arquivos["logo"]?.[0]?.path.replace(/\\/g, "/");
     const produtosPaths =
       arquivos["produtos"]?.map((file) => file.path.replace(/\\/g, "/")) || [];
-    const ccmeiPath = arquivos["ccmei"]?.[0]?.path.replace(/\\/g, "/"); // CCMEI COLETADO
+    // CCMEI ADICIONADO: Garantindo que o caminho seja coletado
+    const ccmeiPath = arquivos["ccmei"]?.[0]?.path.replace(/\\/g, "/");
 
     return {
+      // Esta linha é a chave: ela passa todos os campos do formulário para o serviço,
+      // incluindo os novos campos do responsável. Nenhuma mudança é necessária aqui.
       ...dadosDoFormulario,
       ...(logoPath && { logo: logoPath }),
       ...(produtosPaths.length > 0 && { produtos: produtosPaths }),
-      ...(ccmeiPath && { ccmei: ccmeiPath }), // CCMEI INCLUÍDO NO PAYLOAD
+      ...(ccmeiPath && { ccmei: ccmeiPath }), // CCMEI ADICIONADO
     };
   };
 
@@ -107,36 +117,21 @@ class EstabelecimentoController {
     res: Response
   ): Promise<Response> => {
     try {
-      // 1. Prepara todos os dados (incluindo caminhos dos arquivos ccmei e logo, se enviados)
-      const dadosCompletos = this._prepareDadosCompletos(req);
-
-      const {
-        cnpj,
-        nomeResponsavel,
-        cpf,
-        emailEstabelecimento,
-        ccmei, // Será o caminho do arquivo se tiver sido enviado
-      } = dadosCompletos;
-
-      // 2. VALIDAÇÃO CRÍTICA: Verifica todos os campos de identificação obrigatórios
-      // Se o CCMEI for obrigatório no frontend, o caminho deve existir aqui
-      if (
-        !cnpj ||
-        !nomeResponsavel ||
-        !cpf ||
-        !emailEstabelecimento ||
-        !ccmei
-      ) {
-        // ROLLBACK: Deleta arquivos salvos
-        await this._deleteUploadedFilesOnFailure(req);
+      const { cnpj } = req.body;
+      if (!cnpj) {
         return res.status(400).json({
-          message:
-            "Todos os campos de identificação (Nome, CPF, CNPJ, Email e Certificado CCMEI) são obrigatórios para solicitar uma atualização.",
+          message: "O CNPJ é obrigatório para solicitar uma atualização.",
         });
       }
 
-      // 3. Processa a atualização
-      // O EstabelecimentoService só receberá os dados que o usuário preencheu/enviou.
+      // Prepara os dados do formulário e dos arquivos de upload (logo, produtos)
+      const dadosCompletos = this._prepareDadosCompletos(req);
+
+      // O arquivo ccmei NUNCA deve ser atualizado aqui, então garantimos sua exclusão
+      if (dadosCompletos.ccmei) {
+        delete dadosCompletos.ccmei;
+      }
+
       const estabelecimento =
         await EstabelecimentoService.solicitarAtualizacaoPorCnpj(
           cnpj,
@@ -148,7 +143,7 @@ class EstabelecimentoController {
         estabelecimento,
       });
     } catch (error: any) {
-      // 4. ROLLBACK em caso de falha no serviço
+      // ROLLBACK: Deleta os arquivos salvos se a atualização falhar.
       await this._deleteUploadedFilesOnFailure(req);
       return this._handleError(error, res);
     }
@@ -159,18 +154,13 @@ class EstabelecimentoController {
     res: Response
   ): Promise<Response> => {
     try {
-      const { cnpj, nomeResponsavel, cpf, emailEstabelecimento, motivo } =
-        req.body;
-
-      if (!cnpj || !nomeResponsavel || !cpf || !emailEstabelecimento) {
+      const { cnpj } = req.body;
+      if (!cnpj) {
         return res.status(400).json({
-          message:
-            "Todos os campos de identificação (Nome, CPF, CNPJ, Email) são obrigatórios para solicitar uma exclusão.",
+          message: "O CNPJ é obrigatório para solicitar uma exclusão.",
         });
       }
-
       await EstabelecimentoService.solicitarExclusaoPorCnpj(cnpj);
-
       return res
         .status(200)
         .json({ message: "Solicitação de exclusão enviada para análise." });

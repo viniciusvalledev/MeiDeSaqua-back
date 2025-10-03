@@ -1,37 +1,24 @@
-import Usuario from './Usuario.entity';
-import Estabelecimento from './Estabelecimento.entity';
-import Proprietario from './Proprietario.entity';
-import Avaliacao from './Avaliacao.entity';
-import ImagemProduto from './ImagemProduto.entity';
+import Usuario from "./Usuario.entity";
+import Estabelecimento from "./Estabelecimento.entity";
+import Avaliacao from "./Avaliacao.entity";
+import ImagemProduto from "./ImagemProduto.entity";
 
+Usuario.hasMany(Avaliacao, { foreignKey: "usuarioId", as: "avaliacoes" });
+Avaliacao.belongsTo(Usuario, { foreignKey: "usuarioId", as: "usuario" });
 
-Proprietario.hasOne(Estabelecimento, { foreignKey: 'estabelecimentoId' });
-Estabelecimento.belongsTo(Proprietario, { foreignKey: 'estabelecimentoId' });
-
-
-Usuario.hasMany(Avaliacao, { foreignKey: 'usuarioId', as: 'avaliacoes' });
-Avaliacao.belongsTo(Usuario, { foreignKey: 'usuarioId', as: 'usuario' });
-
-
-Estabelecimento.hasMany(Avaliacao, { 
-    foreignKey: 'estabelecimentoId',
-    as: 'avaliacoes' 
+Estabelecimento.hasMany(Avaliacao, {
+  foreignKey: "estabelecimentoId",
+  as: "avaliacoes",
 });
-Avaliacao.belongsTo(Estabelecimento, { 
-    foreignKey: 'estabelecimentoId',
-    as: 'estabelecimento' 
+Avaliacao.belongsTo(Estabelecimento, {
+  foreignKey: "estabelecimentoId",
+  as: "estabelecimento",
 });
 
-Estabelecimento.hasMany(ImagemProduto, { 
-    foreignKey: 'estabelecimentoId',
-    as: 'produtosImg' 
+Estabelecimento.hasMany(ImagemProduto, {
+  foreignKey: "estabelecimentoId",
+  as: "produtosImg",
 });
-ImagemProduto.belongsTo(Estabelecimento, { foreignKey: 'estabelecimentoId' });
+ImagemProduto.belongsTo(Estabelecimento, { foreignKey: "estabelecimentoId" });
 
-export {
-    Usuario,
-    Estabelecimento,
-    Proprietario,
-    Avaliacao,
-    ImagemProduto
-};
+export { Usuario, Estabelecimento, Avaliacao, ImagemProduto };

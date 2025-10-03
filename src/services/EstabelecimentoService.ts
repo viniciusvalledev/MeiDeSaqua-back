@@ -1,140 +1,163 @@
 import { Op } from "sequelize";
-import { Estabelecimento, ImagemProduto, Avaliacao } from "../entities";
 import sequelize from "../config/database";
-import { StatusEstabelecimento } from "../entities/Estabelecimento.entity";
+import Estabelecimento, {
+  StatusEstabelecimento,
+} from "../entities/Estabelecimento.entity";
+import ImagemProduto from "../entities/ImagemProduto.entity";
+import path from "path";
+import fs from "fs/promises";
 
 class EstabelecimentoService {
-  public async cadastrarEstabelecimentoComImagens(dto: any) {
-    if (dto.cnpj && dto.cnpj.trim() !== "") {
-      const cnpjExists = await Estabelecimento.findOne({ where: { cnpj: dto.cnpj } });
-      if (cnpjExists) {
-        throw new Error("CNPJ já cadastrado no sistema.");
-      }
-    }
-
-    if (dto.emailEstabelecimento && dto.emailEstabelecimento.trim() !== "") {
-      const emailExists = await Estabelecimento.findOne({ where: { emailEstabelecimento: dto.emailEstabelecimento } });
-      if (emailExists) {
+  public async cadastrarEstabelecimentoComImagens(
+    dados: any
+  ): Promise<Estabelecimento> {
+    const transaction = await sequelize.transaction();
+    try {
+      const emailExistente = await Estabelecimento.findOne({
+        where: { emailEstabelecimento: dados.emailEstabelecimento },
+        transaction,
+      });
+      if (emailExistente) {
         throw new Error("E-mail já cadastrado no sistema.");
       }
-    }
 
-    const { produtos, ...dadosEstabelecimento } = dto;
-    const novoEstabelecimento = await Estabelecimento.create({
-      ...dadosEstabelecimento,
-      logoUrl: dadosEstabelecimento.logo,
-    });
-
-    if (produtos && produtos.length > 0) {
-      const imagensPromises = produtos.map((urlDaImagem: string) => {
-        return ImagemProduto.create({
-          url: urlDaImagem,
-          estabelecimentoId: novoEstabelecimento.estabelecimentoId,
-        });
+      const cnpjExistente = await Estabelecimento.findOne({
+        where: { cnpj: dados.cnpj },
+        transaction,
       });
-      await Promise.all(imagensPromises);
-    }
+      if (cnpjExistente) {
+        throw new Error("CNPJ já cadastrado no sistema.");
+      }
 
-    return novoEstabelecimento;
+      // *** CORREÇÃO APLICADA AQUI ***
+      // Criamos um objeto apenas com os campos que o modelo Estabelecimento espera.
+      const dadosParaCriacao = {
+        nomeFantasia: dados.nomeFantasia,
+        cnpj: dados.cnpj,
+        categoria: dados.categoria,
+        nomeResponsavel: dados.nome_responsavel,
+        cpfResponsavel: dados.cpf_responsavel,
+        cnae: dados.cnae,
+        emailEstabelecimento: dados.emailEstabelecimento,
+        contatoEstabelecimento: dados.contatoEstabelecimento,
+        endereco: dados.endereco,
+        descricao: dados.descricao,
+        descricaoDiferencial: dados.descricaoDiferencial,
+        areasAtuacao: dados.areasAtuacao,
+        tagsInvisiveis: dados.tagsInvisiveis,
+        website: dados.website,
+        instagram: dados.instagram,
+        logoUrl: dados.logo,
+      };
+
+      const estabelecimento = await Estabelecimento.create(dadosParaCriacao, {
+        transaction,
+      });
+
+      if (dados.produtos && dados.produtos.length > 0) {
+        const imagens = dados.produtos.map((url: string) => ({
+          url,
+          estabelecimentoId: estabelecimento.estabelecimentoId,
+        }));
+        await ImagemProduto.bulkCreate(imagens, { transaction });
+      }
+
+      await transaction.commit();
+      return estabelecimento;
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
   }
-  
-  public async solicitarAtualizacaoPorCnpj(cnpj: string, dadosAtualizacao: any) {
-    if (dadosAtualizacao.descricao && dadosAtualizacao.descricao.length > 500) {
-        throw new Error("Data too long for column 'descricao'");
-    }
-    if (dadosAtualizacao.descricaoDiferencial && dadosAtualizacao.descricaoDiferencial.length > 130) {
-        throw new Error("Data too long for column 'descricao_diferencial'");
-    }
 
+  public async solicitarAtualizacaoPorCnpj(
+    cnpj: string,
+    dadosAtualizacao: any
+  ): Promise<Estabelecimento> {
     const estabelecimento = await Estabelecimento.findOne({ where: { cnpj } });
 
     if (!estabelecimento) {
-      throw new Error("Estabelecimento não encontrado com o CNPJ fornecido.");
+      throw new Error("Estabelecimento não encontrado.");
     }
 
-    if (estabelecimento.status !== StatusEstabelecimento.ATIVO) {
-      throw new Error("Não é possível solicitar atualização para um estabelecimento que não está ativo.");
-    }
-    
-    const { cnpj: _, ...dadosLimpos } = dadosAtualizacao;
-
-    estabelecimento.dados_atualizacao = dadosLimpos;
     estabelecimento.status = StatusEstabelecimento.PENDENTE_ATUALIZACAO;
+    estabelecimento.dados_atualizacao = dadosAtualizacao;
+    await estabelecimento.save();
 
-    return await estabelecimento.save({ fields: ["dados_atualizacao", "status"] });
+    return estabelecimento;
   }
 
-  public async solicitarExclusaoPorCnpj(cnpj: string) {
+  public async solicitarExclusaoPorCnpj(cnpj: string): Promise<void> {
     const estabelecimento = await Estabelecimento.findOne({ where: { cnpj } });
 
     if (!estabelecimento) {
-      throw new Error("Estabelecimento não encontrado com o CNPJ fornecido.");
+      throw new Error("Estabelecimento não encontrado.");
     }
 
-    if (estabelecimento.status !== StatusEstabelecimento.ATIVO) {
-      throw new Error("Não é possível solicitar exclusão para um estabelecimento que não está ativo.");
-    }
-    
     estabelecimento.status = StatusEstabelecimento.PENDENTE_EXCLUSAO;
-
-    return await estabelecimento.save({ fields: ["dados_atualizacao", "status"] });
+    await estabelecimento.save();
   }
 
-  public async listarTodos() {
-    return Estabelecimento.findAll({
-      where: { status: StatusEstabelecimento.ATIVO },
-      include: [
-        { model: ImagemProduto, as: "produtosImg", attributes: [] },
-        { model: Avaliacao, as: "avaliacoes", attributes: [] },
-      ],
-      attributes: {
-        include: [
-          [sequelize.fn("AVG", sequelize.col("avaliacoes.nota")), "media"],
-          [sequelize.fn("GROUP_CONCAT", sequelize.col("produtosImg.url")), "produtosImgUrls"],
-        ],
-      },
-      group: ["Estabelecimento.estabelecimento_id"],
-      order: [["estabelecimento_id", "DESC"]],
-    });
-  }
-
-  public async buscarPorId(id: number) {
-    return Estabelecimento.findOne({
-      where: { estabelecimentoId: id, status: StatusEstabelecimento.ATIVO }, 
-      include: [
-        { model: ImagemProduto, as: "produtosImg", attributes: [] },
-        { model: Avaliacao, as: "avaliacoes", attributes: [] },
-      ],
-      attributes: {
-        include: [
-          [sequelize.fn("AVG", sequelize.col("avaliacoes.nota")), "media"],
-          [sequelize.fn("GROUP_CONCAT", sequelize.col("produtosImg.url")), "produtosImgUrls"],
-        ],
-      },
-      group: ["Estabelecimento.estabelecimento_id"],
-    });
-  }
-
-  public async buscarPorNome(nome: string) {
+  public async listarTodos(): Promise<Estabelecimento[]> {
     return Estabelecimento.findAll({
       where: {
-        nomeFantasia: { [Op.like]: `%${nome}%` },
         status: StatusEstabelecimento.ATIVO,
       },
-      include: [{ model: ImagemProduto, as: "produtosImg" }],
+      include: [
+        {
+          model: ImagemProduto,
+          as: "produtosImg",
+          attributes: ["url"],
+        },
+      ],
     });
   }
 
-  public async alterarStatusAtivo(id: number, novoStatus: boolean) {
+  public async buscarPorNome(nome: string): Promise<Estabelecimento[]> {
+    return Estabelecimento.findAll({
+      where: {
+        nomeFantasia: {
+          [Op.like]: `%${nome}%`,
+        },
+        status: StatusEstabelecimento.ATIVO,
+      },
+      include: [
+        {
+          model: ImagemProduto,
+          as: "produtosImg",
+          attributes: ["url"],
+        },
+      ],
+    });
+  }
+
+  public async buscarPorId(id: number): Promise<Estabelecimento | null> {
+    return Estabelecimento.findOne({
+      where: {
+        estabelecimentoId: id,
+        status: StatusEstabelecimento.ATIVO,
+      },
+      include: [
+        {
+          model: ImagemProduto,
+          as: "produtosImg",
+          attributes: ["url"],
+        },
+      ],
+    });
+  }
+
+  public async alterarStatusAtivo(
+    id: number,
+    ativo: boolean
+  ): Promise<Estabelecimento> {
     const estabelecimento = await Estabelecimento.findByPk(id);
     if (!estabelecimento) {
-      throw new Error(`Estabelecimento não encontrado com o ID: ${id}`);
+      throw new Error("Estabelecimento não encontrado.");
     }
-    estabelecimento.ativo = novoStatus;
-    if (!novoStatus && estabelecimento.status === StatusEstabelecimento.ATIVO) {
-        // Lógica futura pode ser adicionada aqui
-    }
-    return await estabelecimento.save();
+    estabelecimento.ativo = ativo;
+    await estabelecimento.save();
+    return estabelecimento;
   }
 }
 

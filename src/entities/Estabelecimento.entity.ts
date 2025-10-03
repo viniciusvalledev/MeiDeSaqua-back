@@ -27,6 +27,9 @@ class Estabelecimento extends Model {
   public logoUrl!: string;
   public status!: StatusEstabelecimento;
   public dados_atualizacao!: object | null;
+  public cnae!: string;
+  public nomeResponsavel!: string;
+  public cpfResponsavel!: string;
 }
 
 Estabelecimento.init(
@@ -40,6 +43,21 @@ Estabelecimento.init(
     categoria: {
       type: DataTypes.STRING,
       allowNull: true,
+    },
+    nomeResponsavel: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      field: "nome_responsavel",
+    },
+    cpfResponsavel: {
+      type: DataTypes.STRING(14),
+      allowNull: false,
+      field: "cpf_responsavel",
+    },
+    cnae: {
+      type: DataTypes.STRING(10),
+      allowNull: false,
+      field: "cnae",
     },
     contatoEstabelecimento: {
       type: DataTypes.STRING,
