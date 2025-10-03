@@ -53,6 +53,7 @@ router.put(
   upload.fields([
     { name: "logo", maxCount: 1 },
     { name: "produtos", maxCount: 5 },
+    { name: "ccmei", maxCount: 1 },
   ]),
   compressImages,
   EstabelecimentoController.solicitarAtualizacao
