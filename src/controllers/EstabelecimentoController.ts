@@ -73,23 +73,34 @@ class EstabelecimentoController {
   };
 
   private _prepareDadosCompletos = (req: Request): any => {
-    // A constante 'dadosDoFormulario' já captura TODOS os campos do body,
-    // incluindo os novos 'nomeResponsavel' e 'cpfResponsavel' que virão do frontend.
     const dadosDoFormulario = req.body;
     const arquivos = req.files as {
       [fieldname: string]: Express.Multer.File[];
     };
 
-    // Note: Multer já salva os arquivos. Aqui apenas coletamos os caminhos.
-    const logoPath = arquivos["logo"]?.[0]?.path.replace(/\\/g, "/");
+    const getRelativePath = (
+      fullPath: string | undefined
+    ): string | undefined => {
+      if (!fullPath) return undefined;
+      // Converte barras invertidas para barras normais
+      const normalizedPath = fullPath.replace(/\\/g, "/");
+      // Encontra a parte do caminho que começa com "uploads"
+      const uploadsIndex = normalizedPath.indexOf("uploads");
+      if (uploadsIndex === -1) {
+        // Se "uploads" não for encontrado, retorna o caminho como está (fallback)
+        return normalizedPath;
+      }
+      // Retorna a substring a partir de "uploads"
+      return normalizedPath.substring(uploadsIndex);
+    };
+    const logoPath = getRelativePath(arquivos["logo"]?.[0]?.path);
+
     const produtosPaths =
-      arquivos["produtos"]?.map((file) => file.path.replace(/\\/g, "/")) || [];
-    // CCMEI ADICIONADO: Garantindo que o caminho seja coletado
-    const ccmeiPath = arquivos["ccmei"]?.[0]?.path.replace(/\\/g, "/");
+      arquivos["produtos"]?.map((file) => getRelativePath(file.path)!) || [];
+
+    const ccmeiPath = getRelativePath(arquivos["ccmei"]?.[0]?.path);
 
     return {
-      // Esta linha é a chave: ela passa todos os campos do formulário para o serviço,
-      // incluindo os novos campos do responsável. Nenhuma mudança é necessária aqui.
       ...dadosDoFormulario,
       ...(logoPath && { logo: logoPath }),
       ...(produtosPaths.length > 0 && { produtos: produtosPaths }),

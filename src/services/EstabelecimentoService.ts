@@ -101,7 +101,7 @@ class EstabelecimentoService {
   public async listarTodos(): Promise<Estabelecimento[]> {
     return Estabelecimento.findAll({
       where: {
-        status: StatusEstabelecimento.ATIVO,
+        status: StatusEstabelecimento.PENDENTE_APROVACAO,
       },
       include: [
         {
@@ -158,6 +158,39 @@ class EstabelecimentoService {
     estabelecimento.ativo = ativo;
     await estabelecimento.save();
     return estabelecimento;
+  }
+
+  public async listarPendentes(): Promise<{
+    cadastros: Estabelecimento[];
+    atualizacoes: Estabelecimento[];
+    exclusoes: Estabelecimento[];
+  }> {
+    const commonOptions = {
+      include: [
+        {
+          model: ImagemProduto,
+          as: "produtosImg", // ESSA ASSOCIAÇÃO É CRUCIAL
+          attributes: ["url"],
+        },
+      ],
+    };
+
+    const cadastros = await Estabelecimento.findAll({
+      where: { status: StatusEstabelecimento.PENDENTE_APROVACAO },
+      ...commonOptions,
+    });
+
+    const atualizacoes = await Estabelecimento.findAll({
+      where: { status: StatusEstabelecimento.PENDENTE_ATUALIZACAO },
+      ...commonOptions,
+    });
+
+    const exclusoes = await Estabelecimento.findAll({
+      where: { status: StatusEstabelecimento.PENDENTE_EXCLUSAO },
+      // Não precisa incluir imagens para exclusão
+    });
+
+    return { cadastros, atualizacoes, exclusoes };
   }
 }
 

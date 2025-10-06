@@ -50,5 +50,6 @@ app.use("/api/files", fileRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use("/api/users", authMiddleware, userRoutes);
+app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
 
 export default app;
