@@ -101,7 +101,7 @@ class EstabelecimentoService {
   public async listarTodos(): Promise<Estabelecimento[]> {
     return Estabelecimento.findAll({
       where: {
-        status: StatusEstabelecimento.PENDENTE_APROVACAO,
+        status: StatusEstabelecimento.ATIVO,
       },
       include: [
         {
