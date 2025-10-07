@@ -48,6 +48,7 @@ class EstabelecimentoService {
         website: dados.website,
         instagram: dados.instagram,
         logoUrl: dados.logo,
+        ccmeiUrl: dados.ccmei,
       };
 
       const estabelecimento = await Estabelecimento.create(dadosParaCriacao, {

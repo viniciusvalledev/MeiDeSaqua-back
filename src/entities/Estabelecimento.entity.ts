@@ -30,6 +30,7 @@ class Estabelecimento extends Model {
   public cnae!: string;
   public nomeResponsavel!: string;
   public cpfResponsavel!: string;
+  public ccmeiUrl!: string;
 }
 
 Estabelecimento.init(
@@ -53,6 +54,11 @@ Estabelecimento.init(
       type: DataTypes.STRING(14),
       allowNull: false,
       field: "cpf_responsavel",
+    },
+    ccmeiUrl: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: "ccmeiUrl",
     },
     cnae: {
       type: DataTypes.STRING(10),
