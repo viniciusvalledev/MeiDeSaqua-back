@@ -5,22 +5,20 @@ import path from "path";
 import EstabelecimentoController from "../controllers/EstabelecimentoController";
 import { compressImages } from "../middlewares/compression.middleware";
 
-const sanitizeFilename = (name: string) => {
-  if (!name) return "";
-  return name.replace(/[^a-z0-9]/gi, "_").toLowerCase();
-};
+// Define o caminho para a pasta de uploads de forma segura
+const UPLOADS_DIR = path.resolve("uploads");
+
+// Garante que a pasta de uploads exista ao iniciar a aplicação
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
 const storage = multer.diskStorage({
+  // Define o destino para ser SEMPRE a pasta 'uploads' raiz
   destination: function (req, file, cb) {
-    const { categoria, nomeFantasia } = req.body;
-    const safeCategoria = sanitizeFilename(categoria || "geral");
-    const safeNomeFantasia = sanitizeFilename(nomeFantasia || "mei_sem_nome");
-
-    const uploadPath = path.resolve("uploads", safeCategoria, safeNomeFantasia);
-
-    fs.mkdirSync(uploadPath, { recursive: true });
-
-    cb(null, uploadPath);
+    cb(null, UPLOADS_DIR);
   },
+  // Mantém a lógica para gerar um nome de arquivo único
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(
@@ -37,6 +35,7 @@ const router = Router();
 router.get("/", EstabelecimentoController.listarTodos);
 router.get("/buscar", EstabelecimentoController.buscarPorNome);
 router.get("/:id", EstabelecimentoController.buscarPorId);
+
 router.post(
   "/",
   upload.fields([
