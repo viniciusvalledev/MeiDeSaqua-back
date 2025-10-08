@@ -131,11 +131,9 @@ class EstabelecimentoController {
     try {
       const { cnpj } = req.body;
       if (!cnpj) {
-        return res
-          .status(400)
-          .json({
-            message: "O CNPJ é obrigatório para solicitar uma atualização.",
-          });
+        return res.status(400).json({
+          message: "O CNPJ é obrigatório para solicitar uma atualização.",
+        });
       }
 
       const estabelecimentoExistente = await Estabelecimento.findOne({
@@ -143,21 +141,15 @@ class EstabelecimentoController {
       });
       if (!estabelecimentoExistente) {
         await this._deleteUploadedFilesOnFailure(req);
-        return res
-          .status(404)
-          .json({
-            message: "Estabelecimento não encontrado para atualização.",
-          });
+        return res.status(404).json({
+          message: "Estabelecimento não encontrado para atualização.",
+        });
       }
 
       const dadosCompletos = await this._moveFilesAndPrepareData(req, {
         categoria: estabelecimentoExistente.categoria,
         nomeFantasia: estabelecimentoExistente.nomeFantasia,
       });
-
-      if (dadosCompletos.ccmei) {
-        delete dadosCompletos.ccmei;
-      }
 
       const estabelecimento =
         await EstabelecimentoService.solicitarAtualizacaoPorCnpj(
@@ -183,11 +175,9 @@ class EstabelecimentoController {
     try {
       const { cnpj } = req.body;
       if (!cnpj) {
-        return res
-          .status(400)
-          .json({
-            message: "O CNPJ é obrigatório para solicitar uma exclusão.",
-          });
+        return res.status(400).json({
+          message: "O CNPJ é obrigatório para solicitar uma exclusão.",
+        });
       }
       await EstabelecimentoService.solicitarExclusaoPorCnpj(cnpj);
       return res
@@ -231,11 +221,9 @@ class EstabelecimentoController {
       const id = parseInt(req.params.id);
       const estabelecimento = await EstabelecimentoService.buscarPorId(id);
       if (!estabelecimento) {
-        return res
-          .status(404)
-          .json({
-            message: "Estabelecimento não encontrado ou não está ativo.",
-          });
+        return res.status(404).json({
+          message: "Estabelecimento não encontrado ou não está ativo.",
+        });
       }
       return res.status(200).json(estabelecimento);
     } catch (error: any) {
@@ -251,12 +239,10 @@ class EstabelecimentoController {
       const id = parseInt(req.params.id);
       const { ativo } = req.body;
       if (typeof ativo !== "boolean") {
-        return res
-          .status(400)
-          .json({
-            message:
-              "O corpo da requisição deve conter a chave 'ativo' com um valor booleano (true/false).",
-          });
+        return res.status(400).json({
+          message:
+            "O corpo da requisição deve conter a chave 'ativo' com um valor booleano (true/false).",
+        });
       }
       const estabelecimento = await EstabelecimentoService.alterarStatusAtivo(
         id,
