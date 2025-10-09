@@ -15,7 +15,13 @@ const storage = multer.diskStorage({
     cb(null, `${uuidv4()}${extension}`);
   },
 });
-const upload = multer({ storage });
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // Limite de 10 MB para cada arquivo
+  },
+});
 
 router.post("/upload", upload.single("file"), FileController.uploadFile);
 
