@@ -142,7 +142,8 @@ class EstabelecimentoController {
       if (!estabelecimentoExistente) {
         await this._deleteUploadedFilesOnFailure(req);
         return res.status(404).json({
-          message: "Estabelecimento não encontrado para atualização.",
+          message:
+            "Estabelecimento não encontrado para atualização, verifique o CNPJ e tente novamente.",
         });
       }
 
@@ -220,17 +221,42 @@ class EstabelecimentoController {
     try {
       const id = parseInt(req.params.id);
       const estabelecimento = await EstabelecimentoService.buscarPorId(id);
+
       if (!estabelecimento) {
         return res.status(404).json({
           message: "Estabelecimento não encontrado ou não está ativo.",
         });
       }
-      return res.status(200).json(estabelecimento);
+
+      // Converte a instância do Sequelize para um objeto JSON
+      const estabelecimentoJSON = estabelecimento.toJSON();
+
+      // Calcula a média das avaliações
+      let media = 0;
+      if (
+        estabelecimentoJSON.avaliacoes &&
+        estabelecimentoJSON.avaliacoes.length > 0
+      ) {
+        const somaDasNotas = estabelecimentoJSON.avaliacoes.reduce(
+          (acc: number, avaliacao: { nota: number }) => acc + avaliacao.nota,
+          0
+        );
+        const mediaCalculada =
+          somaDasNotas / estabelecimentoJSON.avaliacoes.length;
+        media = parseFloat(mediaCalculada.toFixed(1)); // Garante uma casa decimal
+      }
+
+      // Adiciona o campo "media" ao objeto que será enviado ao frontend
+      const dadosParaFront = {
+        ...estabelecimentoJSON,
+        media: media,
+      };
+
+      return res.status(200).json(dadosParaFront);
     } catch (error: any) {
       return this._handleError(error, res);
     }
   };
-
   public alterarStatus = async (
     req: Request,
     res: Response

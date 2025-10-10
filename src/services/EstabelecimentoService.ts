@@ -4,6 +4,7 @@ import Estabelecimento, {
   StatusEstabelecimento,
 } from "../entities/Estabelecimento.entity";
 import ImagemProduto from "../entities/ImagemProduto.entity";
+import Avaliacao from "../entities/Avaliacao.entity";
 import path from "path";
 import fs from "fs/promises";
 
@@ -143,6 +144,11 @@ class EstabelecimentoService {
           model: ImagemProduto,
           as: "produtosImg",
           attributes: ["url"],
+        },
+        {
+          model: Avaliacao,
+          as: "avaliacoes",
+          attributes: ["nota"],
         },
       ],
     });
