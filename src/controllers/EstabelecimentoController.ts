@@ -224,7 +224,8 @@ class EstabelecimentoController {
 
       if (!estabelecimento) {
         return res.status(404).json({
-          message: "Estabelecimento não encontrado ou não está ativo.",
+          message:
+            "Estabelecimento não encontrado para atualização, verifique o CNPJ e tente novamente.",
         });
       }
 
