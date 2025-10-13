@@ -178,13 +178,14 @@ class EstabelecimentoController {
     res: Response
   ): Promise<Response> => {
     try {
-      const { cnpj } = req.body;
+      const { cnpj, motivo } = req.body;
       if (!cnpj) {
         return res.status(400).json({
           message: "O CNPJ é obrigatório para solicitar uma exclusão.",
         });
       }
-      await EstabelecimentoService.solicitarExclusaoPorCnpj(cnpj);
+
+      await EstabelecimentoService.solicitarExclusaoPorCnpj(cnpj, motivo);
       return res
         .status(200)
         .json({ message: "Solicitação de exclusão enviada para análise." });

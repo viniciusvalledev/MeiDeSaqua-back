@@ -131,7 +131,10 @@ class EstabelecimentoService {
     return estabelecimento;
   }
 
-  public async solicitarExclusaoPorCnpj(cnpj: string): Promise<void> {
+  public async solicitarExclusaoPorCnpj(
+    cnpj: string,
+    motivo: string
+  ): Promise<void> {
     const estabelecimento = await Estabelecimento.findOne({ where: { cnpj } });
 
     if (!estabelecimento) {
@@ -139,6 +142,7 @@ class EstabelecimentoService {
     }
 
     estabelecimento.status = StatusEstabelecimento.PENDENTE_EXCLUSAO;
+    estabelecimento.dados_atualizacao = { motivo: motivo };
     await estabelecimento.save();
   }
 
@@ -236,7 +240,7 @@ class EstabelecimentoService {
 
     const exclusoes = await Estabelecimento.findAll({
       where: { status: StatusEstabelecimento.PENDENTE_EXCLUSAO },
-      // Não precisa incluir imagens para exclusão
+      ...commonOptions,
     });
 
     return { cadastros, atualizacoes, exclusoes };

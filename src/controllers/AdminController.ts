@@ -7,6 +7,7 @@ import ImagemProduto from "../entities/ImagemProduto.entity";
 import sequelize from "../config/database"; // Importe a instância do sequelize
 import fs from "fs/promises"; // Para deletar arquivos antigos
 import path from "path";
+import EmailService from "../utils/EmailService";
 
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Senha@Forte123";
@@ -73,12 +74,26 @@ export class AdminController {
           .status(404)
           .json({ message: "Estabelecimento não encontrado." });
       }
+      let emailInfo: { subject: string; html: string } | null = null;
 
       switch (estabelecimento.status) {
         case StatusEstabelecimento.PENDENTE_APROVACAO:
           estabelecimento.status = StatusEstabelecimento.ATIVO;
           estabelecimento.ativo = true;
           await estabelecimento.save({ transaction });
+
+          emailInfo = {
+            subject: "Seu cadastro no MeideSaquá foi Aprovado!",
+            html: `
+            <h1>Olá, ${estabelecimento.nomeResponsavel}!</h1>
+            <p>Temos uma ótima notícia: o seu estabelecimento, <strong>${estabelecimento.nomeFantasia}</strong>, foi aprovado e já está visível na nossa plataforma!</p>
+            <p>A partir de agora, clientes podem encontrar o seu negócio e deixar avaliações.</p>
+            <p>Agradecemos por fazer parte da comunidade de empreendedores de Saquarema.</p>
+            <br>
+            <p>Atenciosamente,</p>
+            <p><strong>Equipe MeideSaquá.</strong></p>
+          `,
+          };
           break;
 
         case StatusEstabelecimento.PENDENTE_ATUALIZACAO:
@@ -165,9 +180,33 @@ export class AdminController {
             estabelecimento.status = StatusEstabelecimento.ATIVO;
             await estabelecimento.save({ transaction });
           }
+          emailInfo = {
+            subject:
+              "Sua solicitação de atualização no MeideSaquá foi Aprovada!",
+            html: `
+            <h1>Olá, ${estabelecimento.nomeResponsavel}!</h1>
+            <p>A sua solicitação para atualizar os dados do estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> foi aprovada.</p>
+            <p>As novas informações já estão visíveis para todos na plataforma.</p>
+            <br>
+            <p>Atenciosamente,</p>
+            <p><strong>Equipe MeideSaquá</strong></p>
+          `,
+          };
           break;
 
         case StatusEstabelecimento.PENDENTE_EXCLUSAO:
+          emailInfo = {
+            subject:
+              "Seu estabelecimento foi removido da plataforma MeideSaquá",
+            html: `
+            <h1>Olá, ${estabelecimento.nomeResponsavel}.</h1>
+            <p>Informamos que a sua solicitação para remover o estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> da nossa plataforma foi concluída com sucesso.</p>
+            <p>Lamentamos a sua partida e esperamos poder colaborar com você novamente no futuro.</p>
+            <br>
+            <p>Atenciosamente,</p>
+            <p><strong>Equipe MeideSaquá</strong></p>
+          `,
+          };
           await estabelecimento.destroy({ transaction });
           await transaction.commit(); // Commit antes de retornar
           return res
@@ -178,11 +217,28 @@ export class AdminController {
       // Se tudo deu certo, efetiva as mudanças
       await transaction.commit();
 
+      if (emailInfo) {
+        try {
+          await EmailService.sendGenericEmail({
+            to: estabelecimento.emailEstabelecimento,
+            subject: emailInfo.subject,
+            html: emailInfo.html,
+          });
+          console.log(
+            `Email de notificação enviado com sucesso para ${estabelecimento.emailEstabelecimento}`
+          );
+        } catch (error) {
+          console.error(
+            `Falha ao enviar email de notificação para ${estabelecimento.emailEstabelecimento}:`,
+            error
+          );
+        }
+      }
+
       return res
         .status(200)
         .json({ message: "Solicitação aprovada com sucesso." });
     } catch (error) {
-      // Se algo deu errado, desfaz tudo
       await transaction.rollback();
       console.error("ERRO DURANTE A APROVAÇÃO:", error);
       return res
@@ -190,6 +246,7 @@ export class AdminController {
         .json({ message: "Erro ao aprovar a solicitação." });
     }
   }
+
   static async rejectRequest(req: Request, res: Response) {
     const { id } = req.params;
     try {

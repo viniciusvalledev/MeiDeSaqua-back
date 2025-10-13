@@ -1,5 +1,11 @@
 import nodemailer from "nodemailer";
 
+interface EmailOptions {
+  to: string;
+  subject: string;
+  html: string;
+}
+
 class EmailService {
   private transporter;
 
@@ -58,6 +64,16 @@ class EmailService {
                    Por favor, clique no link abaixo para confirmar a alteração:<br>
                    <a href="${confirmationUrl}">${confirmationUrl}</a><br><br>
                    Se você não solicitou esta alteração, por favor ignore este e-mail.`,
+    };
+    await this.transporter.sendMail(message);
+  }
+
+  public async sendGenericEmail(options: EmailOptions): Promise<void> {
+    const message = {
+      from: `"MeideSaquá" <${process.env.MAIL_USER}>`,
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
     };
     await this.transporter.sendMail(message);
   }
