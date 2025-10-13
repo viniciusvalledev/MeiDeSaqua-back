@@ -5,13 +5,55 @@ import Estabelecimento, {
 } from "../entities/Estabelecimento.entity";
 import ImagemProduto from "../entities/ImagemProduto.entity";
 import Avaliacao from "../entities/Avaliacao.entity";
-import path from "path";
-import fs from "fs/promises";
+import CnpjService from "./CnpjService";
 
 class EstabelecimentoService {
   public async cadastrarEstabelecimentoComImagens(
     dados: any
   ): Promise<Estabelecimento> {
+    if (!dados.cnpj) {
+      throw new Error("O campo CNPJ é obrigatório.");
+    }
+
+    try {
+      const dadosCnpj = await CnpjService.consultarCnpj(dados.cnpj);
+      if (dadosCnpj.opcao_pelo_mei !== true) {
+        throw new Error(
+          `O CNPJ não corresponde a um MEI. O porte identificado foi: "${dadosCnpj.porte}".`
+        );
+      }
+      const situacao = String(dadosCnpj.situacao_cadastral);
+
+      if (situacao !== "ATIVA" && situacao !== "2") {
+        const mapaStatus: { [key: string]: string } = {
+          "1": "NULA",
+          "01": "NULA",
+          "3": "SUSPENSA",
+          "03": "SUSPENSA",
+          "4": "INAPTA",
+          "04": "INAPTA",
+          "8": "BAIXADA",
+          "08": "BAIXADA",
+        };
+        const statusLegivel = mapaStatus[situacao] || situacao;
+
+        throw new Error(
+          `O CNPJ está com a situação "${statusLegivel}". Apenas CNPJs com situação "ATIVA" são permitidos. Em caso de dúvidas, entre em contato com a Sala do Empreendedor.`
+        );
+      }
+
+      const nomeCidade = dadosCnpj.municipio?.toUpperCase();
+      if (nomeCidade !== "SAQUAREMA") {
+        throw new Error(
+          `Este CNPJ pertence à cidade de ${
+            dadosCnpj.municipio || "desconhecida"
+          }. Apenas CNPJs de Saquarema são permitidos. Em caso de dúvidas, entre em contato com a Sala do Empreendedor.`
+        );
+      }
+    } catch (error: any) {
+      throw new Error(error.message);
+    }
+
     const transaction = await sequelize.transaction();
     try {
       const emailExistente = await Estabelecimento.findOne({

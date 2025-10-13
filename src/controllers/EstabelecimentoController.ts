@@ -23,7 +23,10 @@ class EstabelecimentoController {
   };
 
   private _handleError = (error: any, res: Response): Response => {
-    // Seu código de _handleError continua o mesmo aqui...
+    if (error.message && error.message.includes("CNPJ")) {
+      return res.status(400).json({ message: error.message });
+    }
+
     if (error.message === "E-mail já cadastrado no sistema.") {
       return res.status(400).json({ message: error.message });
     }
@@ -53,6 +56,7 @@ class EstabelecimentoController {
     if (error.message.includes("não encontrado")) {
       return res.status(404).json({ message: error.message });
     }
+    console.error("ERRO NÃO TRATADO:", error);
     return res
       .status(500)
       .json({ message: "Ocorreu um erro interno no servidor." });
