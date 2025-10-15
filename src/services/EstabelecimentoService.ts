@@ -132,9 +132,10 @@ class EstabelecimentoService {
   }
 
   public async solicitarExclusaoPorCnpj(
-    cnpj: string,
-    motivo: string
+    dadosExclusao: any // Recebe o objeto completo do controller
   ): Promise<void> {
+    const { cnpj } = dadosExclusao; // Extrai o CNPJ dos dados
+
     const estabelecimento = await Estabelecimento.findOne({ where: { cnpj } });
 
     if (!estabelecimento) {
@@ -142,10 +143,10 @@ class EstabelecimentoService {
     }
 
     estabelecimento.status = StatusEstabelecimento.PENDENTE_EXCLUSAO;
-    estabelecimento.dados_atualizacao = { motivo: motivo };
+    // Guarda todos os dados da solicitação no campo JSON
+    estabelecimento.dados_atualizacao = dadosExclusao;
     await estabelecimento.save();
   }
-
   public async listarTodos(): Promise<Estabelecimento[]> {
     return Estabelecimento.findAll({
       where: {
