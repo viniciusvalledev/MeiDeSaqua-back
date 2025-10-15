@@ -207,14 +207,12 @@ export class AdminController {
             <p><strong>Equipe MeideSaquá</strong></p>
           `,
           };
+
           await estabelecimento.destroy({ transaction });
-          await transaction.commit(); // Commit antes de retornar
-          return res
-            .status(200)
-            .json({ message: "Estabelecimento excluído com sucesso." });
+
+          break;
       }
 
-      // Se tudo deu certo, efetiva as mudanças
       await transaction.commit();
 
       if (emailInfo) {
