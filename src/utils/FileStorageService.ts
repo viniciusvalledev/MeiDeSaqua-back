@@ -63,7 +63,7 @@ class FileStorageService {
 
     // --- CORREÇÃO AQUI ---
     // Retorna a URL completa usando a variável de ambiente e o caminho /uploads/
-    const fileUrl = `${process.env.APP_URL}/uploads/${file.filename}`;
+    const fileUrl = `${process.env.APP_URL}/MeiDeSaqua-back/uploads/${file.filename}`;
     return fileUrl;
   }
 }
