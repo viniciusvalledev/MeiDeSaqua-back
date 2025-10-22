@@ -1,5 +1,5 @@
 // src/utils/FileStorageService.ts
-import fs from "fs/promises"; // Usamos a versão de promessas do 'fs'
+import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 
@@ -20,9 +20,9 @@ class FileStorageService {
   }
 
   /**
-   *
-   * @param
-   * @returns
+   * Salva uma imagem em Base64.
+   * @param base64String A string da imagem em Base64.
+   * @returns A URL pública completa do ficheiro salvo.
    */
   public async saveBase64(base64String: string): Promise<string | null> {
     if (!base64String || base64String.trim() === "") {
@@ -31,7 +31,6 @@ class FileStorageService {
 
     await this.ensureUploadsDirExists();
 
-    // Extrai o tipo de imagem e os dados
     const matches = base64String.match(
       /^data:(image\/([a-zA-Z]+));base64,(.+)$/
     );
@@ -46,22 +45,25 @@ class FileStorageService {
 
     await fs.writeFile(filePath, imageBuffer);
 
-    // Retorna o caminho público que será usado na API
-    return `/images/${uniqueFilename}`;
+    // --- CORREÇÃO AQUI ---
+    // Retorna a URL completa usando a variável de ambiente e o caminho /uploads/
+    return `${process.env.APP_URL}/uploads/${uniqueFilename}`;
   }
 
   /**
    * Salva um ficheiro enviado via formulário (multipart/form-data).
    * @param file O objeto do ficheiro (geralmente do Multer).
-   * @returns O URL público do ficheiro salvo.
+   * @returns O URL público completo do ficheiro salvo.
    */
   public async save(file: Express.Multer.File): Promise<string> {
     await this.ensureUploadsDirExists();
 
-    // O Multer já salva o ficheiro temporariamente, aqui só renomeamos e movemos se necessário
-    // Neste exemplo, assumimos que o Multer já salvou na pasta `uploads` com um nome único.
-    // O trabalho principal será feito na configuração do Multer.
-    const fileUrl = `/images/${file.filename}`;
+    // O Multer já deve ter salvo o arquivo na pasta 'uploads' com um 'filename' único
+    // (Verifique sua configuração do Multer se 'file.filename' não for o nome final)
+
+    // --- CORREÇÃO AQUI ---
+    // Retorna a URL completa usando a variável de ambiente e o caminho /uploads/
+    const fileUrl = `${process.env.APP_URL}/uploads/${file.filename}`;
     return fileUrl;
   }
 }
