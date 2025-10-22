@@ -47,7 +47,7 @@ class FileStorageService {
 
     // --- CORREÇÃO AQUI ---
     // Retorna a URL completa usando a variável de ambiente e o caminho /uploads/
-    return `${process.env.APP_URL}/uploads/${uniqueFilename}`;
+    return `${process.env.APP_URL}/MeiDeSaqua-back/uploads/${uniqueFilename}`;
   }
 
   /**
