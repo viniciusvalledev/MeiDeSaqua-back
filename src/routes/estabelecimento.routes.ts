@@ -63,7 +63,12 @@ router.put(
   EstabelecimentoController.solicitarAtualizacao
 );
 
-router.post("/solicitar-exclusao", EstabelecimentoController.solicitarExclusao);
+router.post(
+  "/solicitar-exclusao",
+  upload.fields([{ name: "ccmei", maxCount: 1 }]),
+  EstabelecimentoController.solicitarExclusao
+);
+
 router.post("/:id/status", EstabelecimentoController.alterarStatus);
 
 export default router;

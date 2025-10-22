@@ -178,18 +178,46 @@ class EstabelecimentoController {
     res: Response
   ): Promise<Response> => {
     try {
-      const { cnpj, motivo } = req.body;
-      if (!cnpj) {
+      const { cnpj, nome_responsavel, cpf_responsavel, emailEstabelecimento } =
+        req.body;
+      if (
+        !cnpj ||
+        !nome_responsavel ||
+        !cpf_responsavel ||
+        !emailEstabelecimento
+      ) {
+        await this._deleteUploadedFilesOnFailure(req); // Apaga o ficheiro se os dados estiverem incompletos
         return res.status(400).json({
-          message: "O CNPJ é obrigatório para solicitar uma exclusão.",
+          message:
+            "CNPJ, nome, CPF do responsável e e-mail são obrigatórios para a exclusão.",
         });
       }
 
-      await EstabelecimentoService.solicitarExclusaoPorCnpj(cnpj, motivo);
+      // Valida se o estabelecimento existe antes de mover os ficheiros
+      const estabelecimentoExistente = await Estabelecimento.findOne({
+        where: { cnpj },
+      });
+      if (!estabelecimentoExistente) {
+        await this._deleteUploadedFilesOnFailure(req);
+        return res.status(404).json({
+          message:
+            "Estabelecimento não encontrado para exclusão, verifique o CNPJ e tente novamente.",
+        });
+      }
+
+      // Usa a sua função auxiliar para mover o ficheiro e preparar os dados
+      const dadosCompletos = await this._moveFilesAndPrepareData(req, {
+        categoria: estabelecimentoExistente.categoria,
+        nomeFantasia: estabelecimentoExistente.nomeFantasia,
+      });
+
+      await EstabelecimentoService.solicitarExclusaoPorCnpj(dadosCompletos);
+
       return res
         .status(200)
         .json({ message: "Solicitação de exclusão enviada para análise." });
     } catch (error: any) {
+      await this._deleteUploadedFilesOnFailure(req); // Garante que em qualquer erro, o ficheiro é removido
       return this._handleError(error, res);
     }
   };
