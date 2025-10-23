@@ -4,8 +4,7 @@ import path from "path";
 import dotenv from "dotenv";
 import sequelize from "./config/database";
 
-// É uma boa prática carregar as variáveis de ambiente o mais cedo possível
-// Se você tem um .env.local, esta linha o carregará. Caso contrário, o dotenv.config() abaixo pegará o .env padrão.
+
 dotenv.config({ path: path.resolve(__dirname, "..", ".env.local") });
 dotenv.config();
 
@@ -19,7 +18,7 @@ import adminRoutes from "./routes/admin.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
 
 const app = express();
-const uploadsPath = path.resolve(process.cwd(), "uploads");
+const uploadsPath = path.resolve(__dirname, "..", "..", "uploads");
 
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
@@ -50,6 +49,5 @@ app.use("/api/files", fileRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use("/api/users", authMiddleware, userRoutes);
-app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
 
 export default app;
