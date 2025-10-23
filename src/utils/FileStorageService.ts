@@ -3,11 +3,13 @@ import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 
-
+// O caminho para a pasta de uploads, a partir da raiz do projeto
 const UPLOADS_DIR = path.resolve(__dirname, "..", "..", "uploads");
 
 class FileStorageService {
-
+  /**
+   * Garante que a pasta de uploads exista.
+   */
   private async ensureUploadsDirExists(): Promise<void> {
     try {
       await fs.access(UPLOADS_DIR);
@@ -20,7 +22,7 @@ class FileStorageService {
   /**
    * Salva uma imagem em Base64.
    * @param base64String A string da imagem em Base64.
-   * @returns A URL pública completa do ficheiro salvo ou null se a string for vazia.
+   * @returns A URL pública completa do ficheiro salvo.
    */
   public async saveBase64(base64String: string): Promise<string | null> {
     if (!base64String || base64String.trim() === "") {
@@ -43,7 +45,9 @@ class FileStorageService {
 
     await fs.writeFile(filePath, imageBuffer);
 
-    return `${process.env.APP_URL}/MeiDeSaqua-back/uploads/${uniqueFilename}`;
+    // --- CORREÇÃO AQUI ---
+    // Retorna a URL completa usando a variável de ambiente e o caminho /uploads/
+    return `${process.env.APP_URL}/uploads/${uniqueFilename}`;
   }
 
   /**
@@ -54,7 +58,12 @@ class FileStorageService {
   public async save(file: Express.Multer.File): Promise<string> {
     await this.ensureUploadsDirExists();
 
-    const fileUrl = `${process.env.APP_URL}/MeiDeSaqua-back/uploads/${file.filename}`;
+    // O Multer já deve ter salvo o arquivo na pasta 'uploads' com um 'filename' único
+    // (Verifique sua configuração do Multer se 'file.filename' não for o nome final)
+
+    // --- CORREÇÃO AQUI ---
+    // Retorna a URL completa usando a variável de ambiente e o caminho /uploads/
+    const fileUrl = `${process.env.APP_URL}/uploads/${file.filename}`;
     return fileUrl;
   }
 }
