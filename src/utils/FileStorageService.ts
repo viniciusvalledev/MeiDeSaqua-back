@@ -3,13 +3,11 @@ import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 
-// O caminho para a pasta de uploads, a partir da raiz do projeto
+
 const UPLOADS_DIR = path.resolve(__dirname, "..", "..", "uploads");
 
 class FileStorageService {
-  /**
-   * Garante que a pasta de uploads exista.
-   */
+
   private async ensureUploadsDirExists(): Promise<void> {
     try {
       await fs.access(UPLOADS_DIR);
