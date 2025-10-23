@@ -43,7 +43,7 @@ class FileStorageService {
 
     await fs.writeFile(filePath, imageBuffer);
 
-    return `${process.env.APP_URL}/uploads/${uniqueFilename}`;
+    return `${process.env.APP_URL}/MeiDeSaqua-back/uploads/${uniqueFilename}`;
   }
 
   /**
@@ -54,7 +54,7 @@ class FileStorageService {
   public async save(file: Express.Multer.File): Promise<string> {
     await this.ensureUploadsDirExists();
 
-    const fileUrl = `${process.env.APP_URL}/uploads/${file.filename}`;
+    const fileUrl = `${process.env.APP_URL}/MeiDeSaqua-back/uploads/${file.filename}`;
     return fileUrl;
   }
 }
