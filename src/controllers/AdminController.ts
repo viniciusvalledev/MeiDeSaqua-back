@@ -65,6 +65,9 @@ export class AdminController {
     const transaction = await sequelize.transaction();
 
     try {
+      // *** VARIÁVEL DE RESPOSTA DECLARADA AQUI ***
+      let responseMessage = "Solicitação aprovada com sucesso.";
+
       const estabelecimento = await Estabelecimento.findByPk(id, {
         transaction,
       });
@@ -208,10 +211,12 @@ export class AdminController {
           `,
           };
           await estabelecimento.destroy({ transaction });
-          await transaction.commit(); // Commit antes de retornar
-          return res
-            .status(200)
-            .json({ message: "Estabelecimento excluído com sucesso." });
+          
+          // *** RESPOSTA CUSTOMIZADA DEFINIDA AQUI ***
+          responseMessage = "Estabelecimento excluído com sucesso.";
+          
+          // *** 'return' REMOVIDO E 'break' ADICIONADO ***
+          break; 
       }
 
       // Se tudo deu certo, efetiva as mudanças
@@ -235,9 +240,11 @@ export class AdminController {
         }
       }
 
+      // *** RESPOSTA FINAL USA A VARIÁVEL ***
       return res
         .status(200)
-        .json({ message: "Solicitação aprovada com sucesso." });
+        .json({ message: responseMessage });
+        
     } catch (error) {
       await transaction.rollback();
       console.error("ERRO DURANTE A APROVAÇÃO:", error);
