@@ -202,7 +202,7 @@ class EstabelecimentoService {
     });
   }
 
-  public async alterarStatusAtivo(
+public async alterarStatusAtivo(
     id: number,
     ativo: boolean
   ): Promise<Estabelecimento> {
@@ -211,6 +211,16 @@ class EstabelecimentoService {
       throw new Error("Estabelecimento não encontrado.");
     }
     estabelecimento.ativo = ativo;
+
+    // Atualiza o 'status' para refletir a mudança
+    if (ativo === false) {
+      // Define um status inativo (REJEITADO é uma boa opção do seu Enum)
+      estabelecimento.status = StatusEstabelecimento.REJEITADO;
+    } else {
+      // Se estiver reativando, define o status como ATIVO
+      estabelecimento.status = StatusEstabelecimento.ATIVO;
+    }
+
     await estabelecimento.save();
     return estabelecimento;
   }
