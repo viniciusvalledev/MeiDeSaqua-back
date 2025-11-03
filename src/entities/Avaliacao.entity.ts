@@ -6,7 +6,7 @@ import sequelize from '../config/database';
 class Avaliacao extends Model {
   public avaliacoesId!: number;
   public comentario!: string;
-  public nota!: number;
+  public nota!: number | null;
   public usuarioId!: number;
   public estabelecimentoId!: number;
   

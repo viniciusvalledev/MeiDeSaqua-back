@@ -39,7 +39,7 @@ class AvaliacaoService {
       if (!parentAvaliacao) {
         throw new Error("Comentário pai não encontrado.");
       }
-      if (parentAvaliacao.parent_id !== null) {
+      if (parentAvaliacao.parentId !== null) {
         throw new Error("Não é possível responder a uma resposta.");
       }
       if (parentAvaliacao.estabelecimentoId !== estabelecimento.estabelecimentoId) {
@@ -141,12 +141,12 @@ class AvaliacaoService {
 
     // MODIFICADO: Lógica para nota
     // Só permite atualizar a nota se FOR UM COMENTÁRIO PRINCIPAL (sem parent_id)
-    if (avaliacao.parent_id === null && dadosAvaliacao.nota != null) {
+    if (avaliacao.parentId === null && dadosAvaliacao.nota != null) {
       if (dadosAvaliacao.nota < 1 || dadosAvaliacao.nota > 5) {
         throw new Error("A nota da avaliação deve estar entre 1 e 5.");
       }
       avaliacao.nota = dadosAvaliacao.nota;
-    } else if (avaliacao.parent_id !== null) {
+    } else if (avaliacao.parentId !== null) {
       // Se for uma resposta, garante que a nota permaneça nula
       avaliacao.nota = null;
     }

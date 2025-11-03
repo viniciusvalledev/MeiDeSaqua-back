@@ -1,3 +1,5 @@
+// Copie e cole TUDO isto no seu arquivo: src/controllers/EstabelecimentoController.ts
+
 import { Request, Response } from "express";
 import EstabelecimentoService from "../services/EstabelecimentoService";
 import fs from "fs/promises";
@@ -247,50 +249,35 @@ class EstabelecimentoController {
     }
   };
 
+  // --- CÓDIGO CORRIGIDO AQUI ---
+  // Este é o método que estava dando o erro .toJSON()
+  // Agora ele apenas repassa o que o Service faz.
   public buscarPorId = async (
     req: Request,
     res: Response
   ): Promise<Response> => {
     try {
       const id = parseInt(req.params.id);
+
+      // 1. O Service já busca o estabelecimento, calcula a média e retorna o objeto PRONTO.
       const estabelecimento = await EstabelecimentoService.buscarPorId(id);
 
       if (!estabelecimento) {
         return res.status(404).json({
-          message:
-            "Estabelecimento não encontrado para atualização, verifique o CNPJ e tente novamente.",
+          message: "Estabelecimento não encontrado.",
         });
       }
 
-      // Converte a instância do Sequelize para um objeto JSON
-      const estabelecimentoJSON = estabelecimento.toJSON();
-
-      // Calcula a média das avaliações
-      let media = 0;
-      if (
-        estabelecimentoJSON.avaliacoes &&
-        estabelecimentoJSON.avaliacoes.length > 0
-      ) {
-        const somaDasNotas = estabelecimentoJSON.avaliacoes.reduce(
-          (acc: number, avaliacao: { nota: number }) => acc + avaliacao.nota,
-          0
-        );
-        const mediaCalculada =
-          somaDasNotas / estabelecimentoJSON.avaliacoes.length;
-        media = parseFloat(mediaCalculada.toFixed(1)); // Garante uma casa decimal
-      }
-
-      // Adiciona o campo "media" ao objeto que será enviado ao frontend
-      const dadosParaFront = {
-        ...estabelecimentoJSON,
-        media: media,
-      };
-
-      return res.status(200).json(dadosParaFront);
+      // 2. O 'estabelecimento' que recebemos aqui JÁ É um JSON com a média.
+      //    Apenas retornamos o objeto diretamente.
+      return res.status(200).json(estabelecimento);
     } catch (error: any) {
       return this._handleError(error, res);
     }
   };
+  // --- FIM DA CORREÇÃO ---
+
+  // Este é o método que estava 'undefined' segundo o log de erro
   public alterarStatus = async (
     req: Request,
     res: Response
