@@ -6,8 +6,14 @@ import Estabelecimento, {
 import ImagemProduto from "../entities/ImagemProduto.entity";
 import Avaliacao from "../entities/Avaliacao.entity";
 import CnpjService from "./CnpjService";
+import Usuario from "../entities/Usuario.entity"; // ADICIONADO: Necessário para a busca aninhada
 
 class EstabelecimentoService {
+
+  // --- MÉTODOS EXISTENTES (INTACTOS) ---
+  // A lógica de cadastro com validação de CNPJ é crucial
+  // e foi mantida exatamente como estava no seu original do MeiDeSaquá.
+
   public async cadastrarEstabelecimentoComImagens(
     dados: any
   ): Promise<Estabelecimento> {
@@ -72,8 +78,6 @@ class EstabelecimentoService {
         throw new Error("CNPJ já cadastrado no sistema.");
       }
 
-      // *** CORREÇÃO APLICADA AQUI ***
-      // Criamos um objeto apenas com os campos que o modelo Estabelecimento espera.
       const dadosParaCriacao = {
         nomeFantasia: dados.nomeFantasia,
         cnpj: dados.cnpj,
@@ -181,28 +185,98 @@ class EstabelecimentoService {
     });
   }
 
+  // --- MÉTODO 'buscarPorId' TOTALMENTE REFATORADO ---
+  // Incorpora a lógica de 'buscarPorNomeUnico' do ProjetoService,
+  // buscando avaliações aninhadas e calculando a média.
   public async buscarPorId(id: number): Promise<Estabelecimento | null> {
-    return Estabelecimento.findOne({
-      where: {
-        estabelecimentoId: id,
-        status: StatusEstabelecimento.ATIVO,
-      },
-      include: [
-        {
-          model: ImagemProduto,
-          as: "produtosImg",
-          attributes: ["url"],
+    try {
+      const estabelecimento = await Estabelecimento.findOne({
+        where: {
+          estabelecimentoId: id,
+          status: StatusEstabelecimento.ATIVO,
         },
-        {
-          model: Avaliacao,
-          as: "avaliacoes",
-          attributes: ["nota"],
+        // Não precisamos de 'include' aqui,
+        // pois vamos buscar as associações separadamente para montar o objeto
+      });
+
+      if (!estabelecimento) {
+        return null;
+      }
+
+      // 1. Buscar imagens
+      const imagens = await ImagemProduto.findAll({
+        where: { estabelecimentoId: estabelecimento.estabelecimentoId },
+        attributes: ["url"],
+      });
+
+      // 2. Buscar avaliações (com a nova lógica de aninhamento)
+      const avaliacoes = await Avaliacao.findAll({
+        where: {
+          estabelecimentoId: estabelecimento.estabelecimentoId,
+          parent_id: null, // Buscar APENAS comentários principais
         },
-      ],
-    });
+        include: [
+          {
+            model: Usuario,
+            as: "usuario",
+            attributes: ["nomeCompleto", "usuarioId", "username"], // Ajuste os atributos conforme necessário
+          },
+          {
+            model: Avaliacao,
+            as: "respostas",
+            required: false,
+            include: [
+              {
+                model: Usuario,
+                as: "usuario",
+                attributes: ["nomeCompleto", "usuarioId", "username"], // Ajuste os atributos
+              },
+            ],
+          },
+        ],
+        order: [
+          ["avaliacoesId", "DESC"], // Pais mais novos primeiro
+          [{ model: Avaliacao, as: "respostas" }, "avaliacoesId", "ASC"], // Respostas em ordem cronológica
+        ],
+      });
+
+      // 3. Montar o JSON de resposta (similar ao ODS Service)
+      const estabelecimentoJSON = estabelecimento.toJSON();
+      
+      // Anexa as imagens e avaliações
+      (estabelecimentoJSON as any).produtosImg = imagens;
+      (estabelecimentoJSON as any).avaliacoes = avaliacoes;
+
+      // 4. Calcular a média (movido do controller para o service)
+      if (avaliacoes && avaliacoes.length > 0) {
+        // Filtra para garantir que só notas de comentários principais sejam contadas
+        const notasPrincipais = avaliacoes
+          .map(a => a.nota)
+          .filter(n => n !== null) as number[];
+          
+        if (notasPrincipais.length > 0) {
+           const somaDasNotas = notasPrincipais.reduce((acc, nota) => acc + nota, 0);
+           (estabelecimentoJSON as any).media = parseFloat(
+            (somaDasNotas / notasPrincipais.length).toFixed(1)
+           );
+        } else {
+           (estabelecimentoJSON as any).media = 0; // Caso só haja respostas sem nota (improvável)
+        }
+      } else {
+        (estabelecimentoJSON as any).media = 0;
+      }
+      
+      return estabelecimentoJSON as Estabelecimento;
+
+    } catch (error) {
+      console.error("[EstabelecimentoService] Erro ao buscarPorId:", error);
+      throw error;
+    }
   }
 
-public async alterarStatusAtivo(
+  // --- MÉTODOS RESTANTES (INTACTOS) ---
+  
+  public async alterarStatusAtivo(
     id: number,
     ativo: boolean
   ): Promise<Estabelecimento> {

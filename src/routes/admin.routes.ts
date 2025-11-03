@@ -41,5 +41,17 @@ router.delete("/estabelecimento/:id",
    adminAuthMiddleware, 
    AdminController.adminDeleteEstabelecimento
   );
+  router.get(
+  "/avaliacoes/estabelecimento/:estabelecimentoId", // <--- MUDANÇA AQUI
+  adminAuthMiddleware,
+  AdminController.getAvaliacoesByEstabelecimento // <--- MUDANÇA AQUI
+);
+
+// Rota para admin excluir uma avaliação
+router.delete(
+  "/avaliacoes/:id",
+  adminAuthMiddleware,
+  AdminController.adminDeleteAvaliacao
+);
 
 export default router;

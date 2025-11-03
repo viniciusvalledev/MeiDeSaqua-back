@@ -9,6 +9,8 @@ import ImagemProduto from "../entities/ImagemProduto.entity";
 import sequelize from "../config/database";
 import fs from "fs/promises";
 import path from "path";
+// --- ADICIONADO ---
+import Usuario from "../entities/Usuario.entity"; // Necessário para o novo método
 // ▲ Fim das importações adicionadas/verificadas ▲
 import EmailService from "../utils/EmailService";
 import EstabelecimentoService from "../services/EstabelecimentoService";
@@ -212,6 +214,9 @@ export class AdminController {
 
           // Deleta as imagens do DB associadas
           await ImagemProduto.destroy({ where: { estabelecimentoId: estabelecimento.estabelecimentoId }, transaction });
+          
+          // --- ADICIONADO: Deleta avaliações associadas ---
+          await Avaliacao.destroy({ where: { estabelecimentoId: estabelecimento.estabelecimentoId }, transaction });
 
           // Deleta o estabelecimento
           await estabelecimento.destroy({ transaction });
@@ -277,9 +282,18 @@ export class AdminController {
     }
   }
 
+  // --- MODIFICADO: Adicionado 'motivoRejeicao' ---
   static async rejectRequest(req: Request, res: Response) {
     const { id } = req.params;
+    // --- ADICIONADO ---
+    const { motivoRejeicao } = req.body;
     const transaction = await sequelize.transaction();
+
+    // --- ADICIONADO ---
+    const motivoHtml = motivoRejeicao
+      ? `<p><strong>Motivo da Rejeição:</strong> ${motivoRejeicao}</p>`
+      : "<p>Recomendamos verificar os dados fornecidos ou entrar em contato com a Sala do Empreendedor para mais informações.</p>";
+
     try {
       const estabelecimento = await Estabelecimento.findByPk(id, { transaction });
       if (!estabelecimento) {
@@ -307,7 +321,8 @@ export class AdminController {
           responseMessage = "Cadastro rejeitado e removido.";
           emailInfo = {
             subject: "Seu cadastro no MeideSaquá foi Rejeitado",
-            html: `<h1>Olá, ${estabelecimento.nomeResponsavel}.</h1><p>Lamentamos informar que o cadastro do estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> não foi aprovado.</p><p>Recomendamos verificar os dados fornecidos ou entrar em contato com a Sala do Empreendedor para mais informações.</p><br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>`
+            // --- MODIFICADO ---
+            html: `<h1>Olá, ${estabelecimento.nomeResponsavel}.</h1><p>Lamentamos informar que o cadastro do estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> não foi aprovado.</p>${motivoHtml}<br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>`
           };
 
       } else if (estabelecimento.status === StatusEstabelecimento.PENDENTE_ATUALIZACAO || estabelecimento.status === StatusEstabelecimento.PENDENTE_EXCLUSAO) {
@@ -327,9 +342,11 @@ export class AdminController {
           await estabelecimento.save({ transaction });
 
            if (statusAnterior === StatusEstabelecimento.PENDENTE_ATUALIZACAO) {
-            emailInfo = { subject: "Sua solicitação de atualização no MeideSaquá foi Rejeitada", html: `<h1>Olá, ${estabelecimento.nomeResponsavel}.</h1><p>Informamos que a sua solicitação para atualizar os dados do estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> não foi aprovada.</p><p>Os dados anteriores foram mantidos. Entre em contato conosco se precisar de esclarecimentos.</p><br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>` };
+            // --- MODIFICADO ---
+            emailInfo = { subject: "Sua solicitação de atualização no MeideSaquá foi Rejeitada", html: `<h1>Olá, ${estabelecimento.nomeResponsavel}.</h1><p>Informamos que a sua solicitação para atualizar os dados do estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> não foi aprovada.</p><p>Os dados anteriores foram mantidos.</p>${motivoHtml}<br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>` };
           } else { // PENDENTE_EXCLUSAO
-             emailInfo = { subject: "Sua solicitação de exclusão no MeideSaquá foi Rejeitada", html: `<h1>Olá, ${estabelecimento.nomeResponsavel}.</h1><p>Informamos que a sua solicitação para remover o estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> não foi aprovada.</p><p>Seu estabelecimento continua ativo na plataforma. Entre em contato conosco se precisar de esclarecimentos.</p><br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>` };
+            // --- MODIFICADO ---
+             emailInfo = { subject: "Sua solicitação de exclusão no MeideSaquá foi Rejeitada", html: `<h1>Olá, ${estabelecimento.nomeResponsavel}.</h1><p>Informamos que a sua solicitação para remover o estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> não foi aprovada.</p><p>Seu estabelecimento continua ativo na plataforma.</p>${motivoHtml}<br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>` };
           }
 
       } else {
@@ -596,6 +613,73 @@ export class AdminController {
         await transaction.rollback();
         console.error("Falha ao excluir estabelecimento (admin):", error);
         return res.status(500).json({ message: "Erro interno ao excluir estabelecimento." });
+    }
+  }
+
+  // --- ADICIONADO: Método para Admin ver avaliações de um Estabelecimento ---
+  static async getAvaliacoesByEstabelecimento(req: Request, res: Response) {
+    try {
+      const { estabelecimentoId } = req.params;
+      const idNum = parseInt(estabelecimentoId);
+
+      if (isNaN(idNum)) {
+        return res.status(400).json({ message: "ID do estabelecimento inválido." });
+      }
+
+      // 1. Busca o estabelecimento para validar e obter o nome
+      const estabelecimento = await Estabelecimento.findByPk(idNum, {
+        attributes: ["estabelecimentoId", "nomeFantasia"],
+      });
+
+      if (!estabelecimento) {
+        return res.status(404).json({ message: "Estabelecimento não encontrado." });
+      }
+
+      // 2. Busca as avaliações (sem DTO, para ver todos os dados do usuário)
+      const avaliacoes = await Avaliacao.findAll({
+        where: { estabelecimentoId: idNum },
+        include: [
+          {
+            model: Usuario,
+            as: "usuario",
+            // Admin pode ver o email, mas não a senha
+            attributes: ["usuarioId", "nomeCompleto", "email", "username"], 
+          },
+        ],
+        order: [["avaliacoesId", "DESC"]],
+      });
+
+      // 3. Retorna o estabelecimento e suas avaliações
+      return res.json({ estabelecimento, avaliacoes });
+    } catch (error) {
+      console.error("Erro ao buscar avaliações (admin):", error);
+      return res.status(500).json({ message: "Erro ao buscar avaliações." });
+    }
+  }
+
+  // --- ADICIONADO: Método para Admin deletar qualquer avaliação ---
+  static async adminDeleteAvaliacao(req: Request, res: Response) {
+    const { id } = req.params; // ID da Avaliação
+    const idNum = parseInt(id);
+
+     if (isNaN(idNum)) {
+        return res.status(400).json({ message: "ID da avaliação inválido." });
+      }
+
+    try {
+      const avaliacao = await Avaliacao.findByPk(idNum);
+
+      if (!avaliacao) {
+        return res.status(404).json({ message: "Avaliação não encontrada." });
+      }
+
+      // Admin não precisa de verificação de propriedade, apenas exclui
+      await avaliacao.destroy();
+
+      return res.status(200).json({ message: "Avaliação excluída com sucesso." });
+    } catch (error) {
+      console.error("Erro ao excluir avaliação (admin):", error);
+      return res.status(500).json({ message: "Erro ao excluir a avaliação." });
     }
   }
 }

@@ -1,8 +1,10 @@
+// src/controllers/AvaliacaoController.ts
+
 import { Request, Response } from 'express';
 import AvaliacaoService from '../services/AvaliacaoService';
 
 interface AuthenticatedRequest extends Request {
-    user?: { 
+    user?: {
         id: number;
         username: string;
     }
@@ -11,10 +13,12 @@ interface AuthenticatedRequest extends Request {
 class AvaliacaoController {
     public async submeterAvaliacao(req: AuthenticatedRequest, res: Response): Promise<Response> {
         try {
-            const usuarioLogadoId = req.user?.id;
+            const usuarioLogadoId = req.user?.id; 
             if (!usuarioLogadoId) return res.status(401).json({ message: "Não autorizado" });
 
-            const dadosAvaliacao = { ...req.body, estabelecimentoId: req.body.estabelecimento.estabelecimentoId };
+            // Esta é a forma correta para o novo service.
+            // O frontend enviará { nota, comentario, estabelecimentoId, parent_id? }
+            const dadosAvaliacao = req.body;
             
             const novaAvaliacao = await AvaliacaoService.submeterAvaliacao(dadosAvaliacao, usuarioLogadoId);
             return res.status(201).json(novaAvaliacao);
@@ -49,10 +53,15 @@ class AvaliacaoController {
         }
     }
 
+    // MODIFICADO: Renomeado de 'listarPorProjeto' para 'listarPorEstabelecimento'
     public async listarPorEstabelecimento(req: Request, res: Response): Promise<Response> {
         try {
+            // MODIFICADO: Renomeado de 'projetoId' para 'estabelecimentoId'
             const estabelecimentoId = parseInt(req.params.id);
+            
+            // MODIFICADO: Renomeado de 'listarPorProjetoDTO' para 'listarPorEstabelecimentoDTO'
             const avaliacoes = await AvaliacaoService.listarPorEstabelecimentoDTO(estabelecimentoId);
+            
             return res.json(avaliacoes);
         } catch (error: any) {
             return res.status(500).json({ message: error.message });
