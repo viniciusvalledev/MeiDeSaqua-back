@@ -1,36 +1,73 @@
 import { Request, Response } from "express";
-// Corrija a importação do StatusEstabelecimento para o novo arquivo
-import { StatusEstabelecimento } from "../entities/Estabelecimento.entity";
-import Estabelecimento from "../entities/Estabelecimento.entity";
-import * as jwt from "jsonwebtoken";
-// ▼ Adicione/Verifique estas importações ▼
-import Avaliacao from "../entities/Avaliacao.entity"; // Adicionado para exclusão
-import ImagemProduto from "../entities/ImagemProduto.entity";
+import Estabelecimento, {
+  StatusEstabelecimento,
+} from "../entities/Estabelecimento.entity"; // Alterado de Projeto para Estabelecimento
+import *as jwt from "jsonwebtoken";
+import ImagemProduto from "../entities/ImagemProduto.entity"; // Alterado de ImagemProjeto para ImagemProduto
 import sequelize from "../config/database";
 import fs from "fs/promises";
 import path from "path";
-// --- ADICIONADO ---
-import Usuario from "../entities/Usuario.entity"; // Necessário para o novo método
-// ▲ Fim das importações adicionadas/verificadas ▲
 import EmailService from "../utils/EmailService";
-import EstabelecimentoService from "../services/EstabelecimentoService";
-import { ICreateUpdateEstabelecimentoRequest } from "../interfaces/requests";
+import EstabelecimentoService from "../services/EstabelecimentoService"; // Alterado de ProjetoService para EstabelecimentoService
+import Avaliacao from "../entities/Avaliacao.entity";
+import Usuario from "../entities/Usuario.entity";
+import { ICreateUpdateEstabelecimentoRequest } from "../interfaces/requests"; // Importa a interface correta
 
-const ADMIN_USER = process.env.ADMIN_USER || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Senha@Forte123";
-const JWT_SECRET =
-  process.env.ADMIN_JWT_SECRET || "seu-segredo-admin-super-secreto";
+// --- ADICIONADO: Validação de variáveis de ambiente ---
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const JWT_SECRET = process.env.ADMIN_JWT_SECRET;
+
+if (!ADMIN_USER || !ADMIN_PASSWORD || !JWT_SECRET) {
+  console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+  console.error("ERRO CRÍTICO: Variáveis de ambiente do Admin não definidas.");
+  console.error(
+    "Por favor, defina ADMIN_USER, ADMIN_PASSWORD, e ADMIN_JWT_SECRET"
+  );
+  console.error(
+    "no seu ficheiro .env (ou .env.local) antes de iniciar o servidor."
+  );
+  console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+  throw new Error(
+    "Credenciais de administrador ou segredo JWT não configurados."
+  );
+}
+// --- FIM DA ADIÇÃO ---
 
 export class AdminController {
-  // --- Métodos Existentes (mantidos) ---
+  // --- FUNÇÃO AUXILIAR DE LIMPEZA DE DADOS (PARA CORRIGIR BUG DO FRONTEND) ---
+  /**
+   * Limpa o req.body que pode vir com arrays (ex: ["antigo", "novo"])
+   * e retorna um objeto com apenas os valores mais recentes (o último do array).
+   */
+  private static cleanRequestBody(body: any): { [key: string]: any } {
+    const cleanedData: { [key: string]: any } = {};
+    if (!body) return cleanedData;
+
+    for (const key in body) {
+      const value = body[key];
+      if (Array.isArray(value)) {
+        // Pega o último item (o valor novo/editado)
+        cleanedData[key] = value[value.length - 1];
+      } else {
+        // Se não for array, apenas copia
+        cleanedData[key] = value;
+      }
+    }
+    return cleanedData;
+  }
 
   static async login(req: Request, res: Response) {
     const { username, password } = req.body;
 
     if (username === ADMIN_USER && password === ADMIN_PASSWORD) {
-      const token = jwt.sign({ username, role: "admin" }, JWT_SECRET, {
-        expiresIn: "8h",
-      });
+      const token = jwt.sign(
+        { username, role: "admin" },
+        JWT_SECRET as string,
+        {
+          expiresIn: "8h",
+        }
+      );
       return res.json({ success: true, token });
     }
 
@@ -39,6 +76,7 @@ export class AdminController {
       .json({ success: false, message: "Credenciais inválidas" });
   }
 
+  // Mantida a versão do MeiDeSaquá (baseada em Service)
   static async getPending(req: Request, res: Response) {
     try {
       const pendingData = await EstabelecimentoService.listarPendentes();
@@ -51,16 +89,18 @@ export class AdminController {
     }
   }
 
+  // Mantida a versão do MeiDeSaquá (lógica de aprovação já estava correta)
   static async approveRequest(req: Request, res: Response) {
     const { id } = req.params;
     const transaction = await sequelize.transaction();
+    let pathsToDeleteApprove: string[] = []; // Array para guardar caminhos de arquivos a deletar
 
     try {
       let responseMessage = "Solicitação aprovada com sucesso.";
 
       const estabelecimento = await Estabelecimento.findByPk(id, {
         transaction,
-        include: [{ model: ImagemProduto, as: "produtosImg" }], // Use o alias correto
+        include: [{ model: ImagemProduto, as: "produtosImg" }],
       });
       if (!estabelecimento) {
         await transaction.rollback();
@@ -97,6 +137,7 @@ export class AdminController {
               [key: string]: any;
             } = {};
 
+            // Lista de campos permitidos (adaptada do "Projeto ODS")
             const camposPermitidos: (keyof ICreateUpdateEstabelecimentoRequest | 'nomeResponsavel' | 'cpfResponsavel' | 'cnae' | 'areasAtuacao')[] = [
                 'categoria', 'contatoEstabelecimento',
                 'nomeFantasia', 'emailEstabelecimento', 'endereco', 'descricao',
@@ -104,37 +145,30 @@ export class AdminController {
                 'nomeResponsavel', 'cpfResponsavel',
                 'cnae',
                 'areasAtuacao'
-                // logoUrl, ccmeiUrl, produtosImg são tratados separadamente
             ];
 
             for (const key of camposPermitidos) {
-                if (dadosRecebidos.hasOwnProperty(key) && dadosRecebidos[key] != null) {
-                   (dadosParaAtualizar as any)[key] = dadosRecebidos[key];
-                }
+              if (
+                dadosRecebidos.hasOwnProperty(key) &&
+                dadosRecebidos[key] != null
+              ) {
+                (dadosParaAtualizar as any)[key] = dadosRecebidos[key];
+              }
             }
 
+            // Lógica para LOGO
             if (dadosRecebidos.logo) {
-              const logoAntigaUrl = estabelecimento.logoUrl;
-              if (logoAntigaUrl) {
-                try {
-                  const filePath = path.resolve(process.cwd(), logoAntigaUrl); // Caminho absoluto
-                  await fs.unlink(filePath);
-                } catch (err) { console.error(`AVISO: Falha ao deletar logo antiga: ${logoAntigaUrl}`, err); }
-              }
+              if (estabelecimento.logoUrl) pathsToDeleteApprove.push(estabelecimento.logoUrl); // Marca logo antiga para deletar
               dadosParaAtualizar.logoUrl = dadosRecebidos.logo;
             }
 
-             if (dadosRecebidos.ccmei) {
-                const ccmeiAntigoUrl = estabelecimento.ccmeiUrl;
-                if (ccmeiAntigoUrl) {
-                    try {
-                        const filePath = path.resolve(process.cwd(), ccmeiAntigoUrl); // Caminho absoluto
-                        await fs.unlink(filePath);
-                    } catch (err) { console.error(`AVISO: Falha ao deletar CCMEI antigo: ${ccmeiAntigoUrl}`, err); }
-                }
-                dadosParaAtualizar.ccmeiUrl = dadosRecebidos.ccmei;
+            // Lógica para CCMEI
+            if (dadosRecebidos.ccmei) {
+              if (estabelecimento.ccmeiUrl) pathsToDeleteApprove.push(estabelecimento.ccmeiUrl); // Marca ccmei antigo para deletar
+              dadosParaAtualizar.ccmeiUrl = dadosRecebidos.ccmei;
             }
 
+            // Lógica para IMAGENS
             if (
               dadosRecebidos.produtos &&
               Array.isArray(dadosRecebidos.produtos) &&
@@ -145,12 +179,7 @@ export class AdminController {
                 transaction,
               });
 
-              for (const imagem of imagensAntigas) {
-                try {
-                  const filePath = path.resolve(process.cwd(), imagem.url); // Caminho absoluto
-                  await fs.unlink(filePath);
-                } catch (err) { console.error(`AVISO: Falha ao deletar imagem antiga: ${imagem.url}`, err); }
-              }
+              imagensAntigas.forEach(img => pathsToDeleteApprove.push(img.url)); // Marca imagens antigas para deletar
 
               await ImagemProduto.destroy({
                 where: { estabelecimentoId: estabelecimento.estabelecimentoId },
@@ -171,8 +200,8 @@ export class AdminController {
             dadosParaAtualizar.ativo = true;
 
             await estabelecimento.update(dadosParaAtualizar, { transaction });
-
           } else {
+            // Caso não haja dados, apenas reativa
             estabelecimento.dados_atualizacao = null;
             estabelecimento.status = StatusEstabelecimento.ATIVO;
             estabelecimento.ativo = true;
@@ -205,197 +234,98 @@ export class AdminController {
             `,
           };
 
-          // --- Limpeza de arquivos ANTES de destruir ---
-          let pathsToDeleteExclusao: string[] = [];
-          if (estabelecimento.logoUrl) pathsToDeleteExclusao.push(estabelecimento.logoUrl);
-          if (estabelecimento.ccmeiUrl) pathsToDeleteExclusao.push(estabelecimento.ccmeiUrl);
-          const imagensExclusao = await ImagemProduto.findAll({ where: { estabelecimentoId: estabelecimento.estabelecimentoId }, transaction });
-          imagensExclusao.forEach(img => pathsToDeleteExclusao.push(img.url));
+          // Coleta todos os arquivos para deletar
+          if (estabelecimento.logoUrl) pathsToDeleteApprove.push(estabelecimento.logoUrl);
+          if (estabelecimento.ccmeiUrl) pathsToDeleteApprove.push(estabelecimento.ccmeiUrl);
+          const imagensExclusao = await ImagemProduto.findAll({
+            where: { estabelecimentoId: estabelecimento.estabelecimentoId },
+            transaction,
+          });
+          imagensExclusao.forEach((img) => pathsToDeleteApprove.push(img.url));
 
-          // Deleta as imagens do DB associadas
-          await ImagemProduto.destroy({ where: { estabelecimentoId: estabelecimento.estabelecimentoId }, transaction });
-          
-          // --- ADICIONADO: Deleta avaliações associadas ---
-          await Avaliacao.destroy({ where: { estabelecimentoId: estabelecimento.estabelecimentoId }, transaction });
+          // Deleta associações (Imagens, Avaliações)
+          await ImagemProduto.destroy({
+            where: { estabelecimentoId: estabelecimento.estabelecimentoId },
+            transaction,
+          });
+          await Avaliacao.destroy({
+            where: { estabelecimentoId: estabelecimento.estabelecimentoId },
+            transaction,
+          });
 
           // Deleta o estabelecimento
           await estabelecimento.destroy({ transaction });
-
-          // Tenta deletar os arquivos do disco APÓS o commit bem-sucedido
-          await transaction.commit(); // Commit ANTES de tentar deletar arquivos
-
-          for (const relativePath of pathsToDeleteExclusao) {
-              try {
-                  if (relativePath) {
-                    const fullPath = path.resolve(process.cwd(), relativePath);
-                    await fs.unlink(fullPath);
-                    console.log(`Arquivo deletado (aprovação de exclusão): ${fullPath}`);
-                  }
-              } catch (err: any) {
-                  if (err.code !== 'ENOENT') {
-                    console.warn(`AVISO: Falha ao deletar arquivo do disco (aprovação de exclusão): ${relativePath}`, err);
-                  }
-              }
-          }
           responseMessage = "Estabelecimento excluído com sucesso.";
+          
+          // O break não é necessário se dermos commit e return aqui,
+          // mas para manter a lógica de arquivos pós-commit, vamos apenas dar o break.
+          break;
+      }
 
-          // Envio de email pós-commit
-          if (emailInfo && estabelecimento.emailEstabelecimento) { /* Verifica se emailEstabelecimento existe */
-            try {
-              await EmailService.sendGenericEmail({
-                to: estabelecimento.emailEstabelecimento,
-                subject: emailInfo.subject,
-                html: emailInfo.html,
-              });
-              console.log(`Email de notificação de exclusão enviado com sucesso para ${estabelecimento.emailEstabelecimento}`);
-            } catch (error) { console.error(`Falha ao enviar email de notificação de exclusão para ${estabelecimento.emailEstabelecimento}:`, error); }
-          } else if (emailInfo) {
-              console.warn(`Tentativa de enviar email de exclusão para estabelecimento ID ${estabelecimento.estabelecimentoId} sem endereço de email definido.`);
-          }
-          return res.status(200).json({ message: responseMessage });
-          // Note: O break não é necessário aqui pois já retornamos
-
-      } // Fim do switch
-
-      // Commit para casos PENDENTE_APROVACAO e PENDENTE_ATUALIZACAO
       await transaction.commit();
 
-      if (emailInfo && estabelecimento.emailEstabelecimento) { /* Verifica se emailEstabelecimento existe */
+      // --- Deleta arquivos físicos APÓS o commit ---
+      for (const relativePath of pathsToDeleteApprove) {
+        try {
+          if (relativePath) {
+            const fullPath = path.resolve(process.cwd(), relativePath);
+            await fs.unlink(fullPath);
+            console.log(`Arquivo deletado (aprovação): ${fullPath}`);
+          }
+        } catch (err: any) {
+          if (err.code !== 'ENOENT') { // Ignora erro "Arquivo não encontrado"
+            console.warn(`AVISO: Falha ao deletar arquivo do disco (aprovação): ${relativePath}`, err);
+          }
+        }
+      }
+      
+      // Envio de e-mail após o commit
+      if (emailInfo && estabelecimento.emailEstabelecimento) {
         try {
           await EmailService.sendGenericEmail({
             to: estabelecimento.emailEstabelecimento,
             subject: emailInfo.subject,
             html: emailInfo.html,
           });
-          console.log(`Email de notificação enviado com sucesso para ${estabelecimento.emailEstabelecimento}`);
-        } catch (error) { console.error(`Falha ao enviar email de notificação para ${estabelecimento.emailEstabelecimento}:`, error); }
+          console.log(
+            `Email de notificação enviado com sucesso para ${estabelecimento.emailEstabelecimento}`
+          );
+        } catch (error) {
+          console.error(
+            `Falha ao enviar email de notificação para ${estabelecimento.emailEstabelecimento}:`,
+            error
+          );
+        }
       } else if (emailInfo) {
-          console.warn(`Tentativa de enviar email para estabelecimento ID ${estabelecimento.estabelecimentoId} sem endereço de email definido.`);
+        console.warn(
+          `Tentativa de enviar email para estabelecimento ID ${estabelecimento.estabelecimentoId} sem emailEstabelecimento definido.`
+        );
       }
 
       return res.status(200).json({ message: responseMessage });
-
     } catch (error) {
       await transaction.rollback();
       console.error("ERRO DURANTE A APROVAÇÃO:", error);
-      return res.status(500).json({ message: "Erro ao aprovar a solicitação." });
+      return res
+        .status(500)
+        .json({ message: "Erro ao aprovar a solicitação." });
     }
   }
 
-  // --- MODIFICADO: Adicionado 'motivoRejeicao' ---
-  static async rejectRequest(req: Request, res: Response) {
-    const { id } = req.params;
-    // --- ADICIONADO ---
-    const { motivoRejeicao } = req.body;
-    const transaction = await sequelize.transaction();
-
-    // --- ADICIONADO ---
-    const motivoHtml = motivoRejeicao
-      ? `<p><strong>Motivo da Rejeição:</strong> ${motivoRejeicao}</p>`
-      : "<p>Recomendamos verificar os dados fornecidos ou entrar em contato com a Sala do Empreendedor para mais informações.</p>";
-
-    try {
-      const estabelecimento = await Estabelecimento.findByPk(id, { transaction });
-      if (!estabelecimento) {
-         await transaction.rollback();
-        return res.status(404).json({ message: "Estabelecimento não encontrado." });
-      }
-
-      let responseMessage = "Solicitação rejeitada com sucesso.";
-      let emailInfo: { subject: string; html: string } | null = null;
-      const emailParaNotificar = estabelecimento.emailEstabelecimento;
-      let pathsToDeleteRejeicao: string[] = [];
-
-
-      if (estabelecimento.status === StatusEstabelecimento.PENDENTE_APROVACAO) {
-          // Coleta caminhos ANTES de destruir
-          if (estabelecimento.logoUrl) pathsToDeleteRejeicao.push(estabelecimento.logoUrl);
-          if (estabelecimento.ccmeiUrl) pathsToDeleteRejeicao.push(estabelecimento.ccmeiUrl);
-          const imagensRejeicao = await ImagemProduto.findAll({ where: { estabelecimentoId: estabelecimento.estabelecimentoId }, transaction });
-          imagensRejeicao.forEach(img => pathsToDeleteRejeicao.push(img.url));
-
-          // Deleta do DB
-          await ImagemProduto.destroy({ where: { estabelecimentoId: estabelecimento.estabelecimentoId }, transaction });
-          await estabelecimento.destroy({ transaction });
-
-          responseMessage = "Cadastro rejeitado e removido.";
-          emailInfo = {
-            subject: "Seu cadastro no MeideSaquá foi Rejeitado",
-            // --- MODIFICADO ---
-            html: `<h1>Olá, ${estabelecimento.nomeResponsavel}.</h1><p>Lamentamos informar que o cadastro do estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> não foi aprovado.</p>${motivoHtml}<br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>`
-          };
-
-      } else if (estabelecimento.status === StatusEstabelecimento.PENDENTE_ATUALIZACAO || estabelecimento.status === StatusEstabelecimento.PENDENTE_EXCLUSAO) {
-          // Coleta caminhos dos arquivos PENDENTES (em dados_atualizacao)
-          const dadosRejeitados = estabelecimento.dados_atualizacao as any;
-          if (dadosRejeitados) {
-            if (dadosRejeitados.logo) pathsToDeleteRejeicao.push(dadosRejeitados.logo);
-            if (dadosRejeitados.ccmei) pathsToDeleteRejeicao.push(dadosRejeitados.ccmei);
-            if (dadosRejeitados.produtos && Array.isArray(dadosRejeitados.produtos)) {
-              pathsToDeleteRejeicao.push(...dadosRejeitados.produtos);
-            }
-          }
-
-          const statusAnterior = estabelecimento.status;
-          estabelecimento.status = StatusEstabelecimento.ATIVO; // Volta para ativo
-          estabelecimento.dados_atualizacao = null; // Limpa os dados pendentes
-          await estabelecimento.save({ transaction });
-
-           if (statusAnterior === StatusEstabelecimento.PENDENTE_ATUALIZACAO) {
-            // --- MODIFICADO ---
-            emailInfo = { subject: "Sua solicitação de atualização no MeideSaquá foi Rejeitada", html: `<h1>Olá, ${estabelecimento.nomeResponsavel}.</h1><p>Informamos que a sua solicitação para atualizar os dados do estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> não foi aprovada.</p><p>Os dados anteriores foram mantidos.</p>${motivoHtml}<br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>` };
-          } else { // PENDENTE_EXCLUSAO
-            // --- MODIFICADO ---
-             emailInfo = { subject: "Sua solicitação de exclusão no MeideSaquá foi Rejeitada", html: `<h1>Olá, ${estabelecimento.nomeResponsavel}.</h1><p>Informamos que a sua solicitação para remover o estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> não foi aprovada.</p><p>Seu estabelecimento continua ativo na plataforma.</p>${motivoHtml}<br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>` };
-          }
-
-      } else {
-          await transaction.rollback();
-          return res.status(400).json({ message: "O estabelecimento não está em um estado pendente para rejeição." });
-      }
-
-      await transaction.commit(); // Comita as alterações no banco
-
-       // Tenta deletar os arquivos APÓS o commit
-      for (const relativePath of pathsToDeleteRejeicao) {
-          try {
-              if (relativePath) {
-                const fullPath = path.resolve(process.cwd(), relativePath);
-                await fs.unlink(fullPath);
-                console.log(`Arquivo deletado (rejeição): ${fullPath}`);
-              }
-          } catch (err: any) {
-              if (err.code !== 'ENOENT') {
-                console.warn(`AVISO: Falha ao deletar arquivo do disco (rejeição): ${relativePath}`, err);
-              }
-          }
-      }
-
-      if (emailInfo && emailParaNotificar) {
-        try {
-          await EmailService.sendGenericEmail({
-            to: emailParaNotificar,
-            subject: emailInfo.subject,
-            html: emailInfo.html,
-          });
-          console.log(`Email de rejeição enviado com sucesso para ${emailParaNotificar}`);
-        } catch (error) { console.error(`Falha ao enviar email de rejeição para ${emailParaNotificar}:`, error); }
-      }
-
-      return res.status(200).json({ message: responseMessage });
-
-    } catch (error) {
-       await transaction.rollback();
-      console.error("Erro ao rejeitar solicitação:", error);
-      return res.status(500).json({ message: "Erro ao rejeitar a solicitação." });
-    }
-  }
-
+  // --- MÉTODO REFATORADO (JUNSÃO DE CORREÇÕES + LÓGICA DO 'PROJETO ODS') ---
   static async editAndApproveRequest(req: Request, res: Response) {
     const { id } = req.params;
-    const adminEditedData = req.body;
+    
+    // --- CORREÇÃO: Limpa o req.body ---
+    const cleanedData = AdminController.cleanRequestBody(req.body);
+    // --- FIM DA CORREÇÃO ---
+
+    // --- ADICIONADO: Lógica de exclusão de imagens ---
+    const { urlsParaExcluir } = cleanedData; // Pega do body limpo
+    let pathsToDeleteEditApprove: string[] = [];
+    // --- FIM DA ADIÇÃO ---
+
     const transaction = await sequelize.transaction();
-    let pathsToDeleteEditApprove: string[] = []; // Arquivos antigos a deletar
 
     try {
       const estabelecimento = await Estabelecimento.findByPk(id, {
@@ -407,111 +337,208 @@ export class AdminController {
         await transaction.rollback();
         return res.status(404).json({ message: "Estabelecimento não encontrado." });
       }
-
-      if (estabelecimento.status === StatusEstabelecimento.PENDENTE_EXCLUSAO) {
+       if (estabelecimento.status === StatusEstabelecimento.PENDENTE_EXCLUSAO) {
         await transaction.rollback();
         return res.status(400).json({ message: "Não é possível editar e aprovar uma solicitação de exclusão." });
       }
 
       let emailInfo: { subject: string; html: string } | null = null;
       const statusOriginal = estabelecimento.status;
-      let dadosPendentes: any = {}; // Dados enviados pelo usuário, se houver
+      let dadosPendentes: any = {};
 
-      if (statusOriginal === StatusEstabelecimento.PENDENTE_ATUALIZACAO && estabelecimento.dados_atualizacao) {
+      if (
+        statusOriginal === StatusEstabelecimento.PENDENTE_ATUALIZACAO &&
+        estabelecimento.dados_atualizacao
+      ) {
         dadosPendentes = estabelecimento.dados_atualizacao as any;
       }
 
-      // 1. LÓGICA DE ARQUIVOS (considera o que o usuário enviou em dadosPendentes)
-      const novaLogo = dadosPendentes.logo;
-      if (novaLogo) { // Usuário enviou nova logo
-        if (estabelecimento.logoUrl) pathsToDeleteEditApprove.push(estabelecimento.logoUrl); // Marca antiga para deletar
-        adminEditedData.logoUrl = novaLogo; // Garante que a nova seja salva
-      } // Se usuário não enviou, mantém a que o admin digitou (ou a original se admin não editou)
-
-      const novoCcmei = dadosPendentes.ccmei;
-      if (novoCcmei) { // Usuário enviou novo CCMEI
-        if (estabelecimento.ccmeiUrl) pathsToDeleteEditApprove.push(estabelecimento.ccmeiUrl); // Marca antigo para deletar
-        adminEditedData.ccmeiUrl = novoCcmei; // Garante que o novo seja salvo
+      // 1. LÓGICA DE MANIPULAÇÃO DE ARQUIVOS (Refatorada com 'urlsParaExcluir')
+      
+      // Lógica para LOGO
+      // Cenário 1: Admin marcou a logo para DELEÇÃO
+      if (
+        cleanedData.hasOwnProperty("logoUrl") &&
+        cleanedData.logoUrl === null
+      ) {
+        const logoParaDeletar = estabelecimento.logoUrl || dadosPendentes.logo;
+        if (logoParaDeletar) pathsToDeleteEditApprove.push(logoParaDeletar);
+        // 'cleanedData.logoUrl' já é null e será salvo
+      }
+      // Cenário 2: Admin APROVOU uma nova logo (e não a deletou)
+      else if (dadosPendentes.logo) {
+        if (estabelecimento.logoUrl) pathsToDeleteEditApprove.push(estabelecimento.logoUrl); // Deleta a antiga
+        cleanedData.logoUrl = dadosPendentes.logo; // Define a nova
       }
 
+      // Lógica para CCMEI (similar à logo)
+      if (
+        cleanedData.hasOwnProperty("ccmeiUrl") &&
+        cleanedData.ccmeiUrl === null
+      ) {
+        const ccmeiParaDeletar = estabelecimento.ccmeiUrl || dadosPendentes.ccmei;
+        if (ccmeiParaDeletar) pathsToDeleteEditApprove.push(ccmeiParaDeletar);
+      }
+      else if (dadosPendentes.ccmei) {
+        if (estabelecimento.ccmeiUrl) pathsToDeleteEditApprove.push(estabelecimento.ccmeiUrl);
+        cleanedData.ccmeiUrl = dadosPendentes.ccmei;
+      }
+
+      // Lógica para IMAGENS
       const novasImagensProduto = dadosPendentes.produtos;
-      if (novasImagensProduto && Array.isArray(novasImagensProduto)) { // Usuário enviou novas imagens
-        const imagensAntigas = await ImagemProduto.findAll({ where: { estabelecimentoId: estabelecimento.estabelecimentoId }, transaction });
+      // Cenário 1: Admin APROVOU novas imagens (de dados_atualizacao)
+      if (
+        novasImagensProduto &&
+        Array.isArray(novasImagensProduto) &&
+        novasImagensProduto.length > 0
+      ) {
+        const imagensAntigas = await ImagemProduto.findAll({
+          where: { estabelecimentoId: estabelecimento.estabelecimentoId },
+          transaction,
+        });
         imagensAntigas.forEach(img => pathsToDeleteEditApprove.push(img.url)); // Marca antigas para deletar
-        
-        await ImagemProduto.destroy({ where: { estabelecimentoId: estabelecimento.estabelecimentoId }, transaction }); // Deleta refs antigas do DB
-        
-        const imagensFormatadas = novasImagensProduto.map((url: string) => ({
-          url, estabelecimentoId: estabelecimento.estabelecimentoId,
-        }));
-        await ImagemProduto.bulkCreate(imagensFormatadas, { transaction }); // Cria novas refs no DB
-      }
 
-      // 2. APLICA AS ALTERAÇÕES FINAIS (com dados do admin e URLs de arquivos atualizadas)
+        await ImagemProduto.destroy({
+          where: { estabelecimentoId: estabelecimento.estabelecimentoId },
+          transaction,
+        });
+
+        // --- ADICIONADO: Filtra as imagens que o admin marcou para deletar ---
+        const imagensParaCriar = novasImagensProduto.filter(
+          (url: string) => !(urlsParaExcluir && urlsParaExcluir.includes(url))
+        );
+
+        const imagensFormatadas = imagensParaCriar.map((url: string) => ({
+          url,
+          estabelecimentoId: estabelecimento.estabelecimentoId,
+        }));
+        await ImagemProduto.bulkCreate(imagensFormatadas, { transaction });
+      }
+      // Cenário 2: NÃO havia imagens novas, mas admin deletou imagens ANTIGAS
+      else if (
+        urlsParaExcluir &&
+        Array.isArray(urlsParaExcluir) &&
+        urlsParaExcluir.length > 0
+      ) {
+        const imagensParaDeletar = await ImagemProduto.findAll({
+          where: {
+            url: urlsParaExcluir,
+            estabelecimentoId: estabelecimento.estabelecimentoId,
+          },
+          transaction,
+        });
+
+        imagensParaDeletar.forEach(img => pathsToDeleteEditApprove.push(img.url));
+
+        await ImagemProduto.destroy({
+          where: {
+            id: imagensParaDeletar.map((img) => img.id),
+          },
+          transaction,
+        });
+      }
+      
+      // --- ADICIONADO: Remove a chave 'urlsParaExcluir' ---
+      delete cleanedData.urlsParaExcluir;
+      // --- FIM DA ADIÇÃO ---
+
+      // 2. APLICA AS ALTERAÇÕES FINAIS (com dados limpos e URLs de arquivos atualizadas)
       await estabelecimento.update(
         {
-          ...adminEditedData, // Aplica dados editados pelo admin
+          ...cleanedData, // Aplica dados editados pelo admin (LIMPOS)
           status: StatusEstabelecimento.ATIVO,
           ativo: true,
           dados_atualizacao: null, // Limpa JSON de pendências
-          // Garante que logoUrl e ccmeiUrl sejam salvos (seja do admin ou do usuário)
-          logoUrl: adminEditedData.logoUrl || estabelecimento.logoUrl,
-          ccmeiUrl: adminEditedData.ccmeiUrl || estabelecimento.ccmeiUrl,
+          // Garante que logo/ccmei sejam salvos (seja null, novo ou o antigo)
+          logoUrl: cleanedData.logoUrl ?? estabelecimento.logoUrl,
+          ccmeiUrl: cleanedData.ccmeiUrl ?? estabelecimento.ccmeiUrl,
         },
         { transaction }
       );
 
-      // 3. LÓGICA DE E-MAIL
-       if (statusOriginal === StatusEstabelecimento.PENDENTE_APROVACAO) {
-          emailInfo = { subject: "Seu cadastro no MeideSaquá foi Aprovado!", html: `<h1>Olá, ${estabelecimento.nomeResponsavel}!</h1> <p>Temos uma ótima notícia: o seu estabelecimento, <strong>${estabelecimento.nomeFantasia}</strong>, foi aprovado (com algumas edições do administrador) e já está visível na nossa plataforma!</p><p>Agradecemos por fazer parte da comunidade de empreendedores de Saquarema.</p><br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá.</strong></p>` };
-        } else { // PENDENTE_ATUALIZACAO ou ATIVO (caso de edit direto)
-          emailInfo = { subject: "Sua solicitação de atualização no MeideSaquá foi Aprovada!", html: `<h1>Olá, ${estabelecimento.nomeResponsavel}!</h1><p>A sua solicitação para atualizar os dados do estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> foi aprovada (com algumas edições do administrador).</p><p>As novas informações já estão visíveis para todos na plataforma.</p><br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>` };
-        }
+      // 3. LÓGICA DE E-MAIL (adaptada do "Projeto ODS")
+      if (statusOriginal === StatusEstabelecimento.PENDENTE_APROVACAO) {
+        emailInfo = { 
+            subject: "Seu cadastro no MeideSaquá foi Aprovado!", 
+            html: `<h1>Olá, ${estabelecimento.nomeResponsavel}!</h1> <p>Temos uma ótima notícia: o seu estabelecimento, <strong>${estabelecimento.nomeFantasia}</strong>, foi aprovado (com algumas edições do administrador) e já está visível na nossa plataforma!</p><p>Agradecemos por fazer parte da comunidade de empreendedores de Saquarema.</p><br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá.</strong></p>` 
+        };
+      } else { // PENDENTE_ATUALIZACAO ou ATIVO (caso de edit direto)
+        emailInfo = { 
+            subject: "Sua solicitação de atualização no MeideSaquá foi Aprovada!", 
+            html: `<h1>Olá, ${estabelecimento.nomeResponsavel}!</h1><p>A sua solicitação para atualizar os dados do estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> foi aprovada (com algumas edições do administrador).</p><p>As novas informações já estão visíveis para todos na plataforma.</p><br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>` 
+        };
+      }
 
       await transaction.commit(); // Comita tudo
 
       // 4. Deleta arquivos antigos APÓS o commit
       for (const relativePath of pathsToDeleteEditApprove) {
-          try {
-              if (relativePath) {
-                const fullPath = path.resolve(process.cwd(), relativePath);
-                await fs.unlink(fullPath);
-                console.log(`Arquivo deletado (edit/approve): ${fullPath}`);
-              }
-          } catch (err: any) {
-              if (err.code !== 'ENOENT') {
-                console.warn(`AVISO: Falha ao deletar arquivo do disco (edit/approve): ${relativePath}`, err);
-              }
-          }
+         try {
+            if (relativePath) {
+              const fullPath = path.resolve(process.cwd(), relativePath);
+              await fs.unlink(fullPath);
+              console.log(`Arquivo deletado (edit/approve): ${fullPath}`);
+            }
+        } catch (err: any) {
+            if (err.code !== 'ENOENT') {
+              console.warn(`AVISO: Falha ao deletar arquivo do disco (edit/approve): ${relativePath}`, err);
+            }
+        }
       }
 
       if (emailInfo && estabelecimento.emailEstabelecimento) {
         try {
-          await EmailService.sendGenericEmail({ to: estabelecimento.emailEstabelecimento, subject: emailInfo.subject, html: emailInfo.html });
-        } catch (error) { console.error(`Falha ao enviar email de notificação para ${estabelecimento.emailEstabelecimento}:`, error); }
+          await EmailService.sendGenericEmail({
+            to: estabelecimento.emailEstabelecimento,
+            subject: emailInfo.subject,
+            html: emailInfo.html,
+          });
+        } catch (error) {
+          console.error(
+            `Falha ao enviar email de notificação para ${estabelecimento.emailEstabelecimento}:`,
+            error
+          );
+        }
       }
 
-      return res.status(200).json({ message: "Estabelecimento editado e aprovado com sucesso." });
+      return res
+        .status(200)
+        .json({ message: "Estabelecimento editado e aprovado com sucesso." });
     } catch (error) {
       await transaction.rollback();
       console.error("ERRO DURANTE A EDIÇÃO E APROVAÇÃO:", error);
-      return res.status(500).json({ message: "Erro ao editar e aprovar a solicitação." });
+      return res
+        .status(500)
+        .json({ message: "Erro ao editar e aprovar a solicitação." });
     }
   }
 
+  // Mantida a versão do MeiDeSaquá (baseada em Service)
   static async getAllActiveEstabelecimentos(req: Request, res: Response) {
     try {
       const estabelecimentos = await EstabelecimentoService.listarTodos();
       return res.json(estabelecimentos);
     } catch (error) {
       console.error(error);
-      return res.status(500).json({ message: "Erro ao buscar estabelecimentos ativos." });
+      return res
+        .status(500)
+        .json({ message: "Erro ao buscar estabelecimentos ativos." });
     }
   }
 
+  // --- MÉTODO REFATORADO (JUNSÃO DE CORREÇÕES + LÓGICA DO 'PROJETO ODS') ---
   static async adminUpdateEstabelecimento(req: Request, res: Response) {
     const { id } = req.params;
-    const adminEditedData = req.body;
+    
+    // --- CORREÇÃO: Limpa o req.body ---
+    const cleanedData = AdminController.cleanRequestBody(req.body);
+    // --- FIM DA CORREÇÃO ---
+
+    // --- ADICIONADO: Lógica de exclusão de imagens ---
+    const { urlsParaExcluir } = cleanedData;
+    let pathsToDeleteUpdate: string[] = [];
+    // --- FIM DA ADIÇÃO ---
+
     const transaction = await sequelize.transaction();
 
     try {
@@ -522,101 +549,185 @@ export class AdminController {
         return res.status(404).json({ message: "Estabelecimento não encontrado." });
       }
 
-      // Campos que o admin pode editar DIRETAMENTE (sem ir para aprovação)
+      // 1. Lógica para Excluir LOGO
+      if (
+        cleanedData.hasOwnProperty("logoUrl") &&
+        cleanedData.logoUrl === null &&
+        estabelecimento.logoUrl
+      ) {
+        pathsToDeleteUpdate.push(estabelecimento.logoUrl);
+      }
+      
+      // 2. Lógica para Excluir CCMEI
+      if (
+        cleanedData.hasOwnProperty("ccmeiUrl") &&
+        cleanedData.ccmeiUrl === null &&
+        estabelecimento.ccmeiUrl
+      ) {
+        pathsToDeleteUpdate.push(estabelecimento.ccmeiUrl);
+      }
+
+      // 3. Lógica para Excluir Imagens de Produto
+      if (
+        urlsParaExcluir &&
+        Array.isArray(urlsParaExcluir) &&
+        urlsParaExcluir.length > 0
+      ) {
+        const imagensParaDeletar = await ImagemProduto.findAll({
+          where: {
+            url: urlsParaExcluir,
+            estabelecimentoId: estabelecimento.estabelecimentoId,
+          },
+          transaction,
+        });
+
+        imagensParaDeletar.forEach(img => pathsToDeleteUpdate.push(img.url));
+
+        await ImagemProduto.destroy({
+          where: {
+            id: imagensParaDeletar.map((img) => img.id),
+          },
+          transaction,
+        });
+      }
+
+      // --- REFATORADO: Lista de campos editáveis ---
+      // Adicionado logoUrl e ccmeiUrl para permitir que sejam setados para NULL
       const camposEditaveisDireto = [
         'nomeFantasia', 'categoria', 'cnae', 'emailEstabelecimento',
         'contatoEstabelecimento', 'endereco', 'descricao', 'descricaoDiferencial',
         'areasAtuacao', 'tagsInvisiveis', 'website', 'instagram',
-        'nomeResponsavel', 'cpfResponsavel', 'ativo' // Permitir ativar/inativar
+        'nomeResponsavel', 'cpfResponsavel', 'ativo',
+        'logoUrl', 'ccmeiUrl' // Adicionado
       ];
 
       let dadosParaUpdate: any = {};
-      for(const campo of camposEditaveisDireto) {
-        if(adminEditedData.hasOwnProperty(campo)) {
-          dadosParaUpdate[campo] = adminEditedData[campo];
+      for (const campo of camposEditaveisDireto) {
+        // Usa os dados limpos
+        if (cleanedData.hasOwnProperty(campo)) {
+          dadosParaUpdate[campo] = cleanedData[campo];
         }
       }
 
-      // Se inativou, ajusta o status também (conforme correção anterior)
+      // Lógica de Status (mantida)
       if (dadosParaUpdate.ativo === false && estabelecimento.ativo === true) {
-        dadosParaUpdate.status = StatusEstabelecimento.REJEITADO; // Ou outro status inativo
+        dadosParaUpdate.status = StatusEstabelecimento.REJEITADO;
       } else if (dadosParaUpdate.ativo === true && estabelecimento.ativo === false) {
-          dadosParaUpdate.status = StatusEstabelecimento.ATIVO;
+        dadosParaUpdate.status = StatusEstabelecimento.ATIVO;
       }
+      
+      // Remove a chave 'urlsParaExcluir' antes do update
+      delete dadosParaUpdate.urlsParaExcluir; 
 
       await estabelecimento.update(dadosParaUpdate, { transaction });
       await transaction.commit();
 
-      return res.status(200).json({ message: "Estabelecimento atualizado com sucesso pelo admin." });
+      // --- ADICIONADO: Deleta arquivos físicos APÓS o commit ---
+      for (const relativePath of pathsToDeleteUpdate) {
+         try {
+            if (relativePath) {
+              const fullPath = path.resolve(process.cwd(), relativePath);
+              await fs.unlink(fullPath);
+              console.log(`Arquivo deletado (update admin): ${fullPath}`);
+            }
+        } catch (err: any) {
+            if (err.code !== 'ENOENT') {
+              console.warn(`AVISO: Falha ao deletar arquivo do disco (update admin): ${relativePath}`, err);
+            }
+        }
+      }
+
+      return res
+        .status(200)
+        .json({ message: "Estabelecimento atualizado com sucesso pelo admin." });
     } catch (error) {
       await transaction.rollback();
       console.error("ERRO DURANTE A ATUALIZAÇÃO ADMIN:", error);
-      return res.status(500).json({ message: "Erro ao atualizar o estabelecimento." });
+      return res
+        .status(500)
+        .json({ message: "Erro ao atualizar o estabelecimento." });
     }
   }
 
-  /**
-   * Permite ao admin deletar PERMANENTEMENTE um estabelecimento.
-   * Chamado pela rota DELETE /api/admin/estabelecimento/:id
-   */
-  static async adminDeleteEstabelecimento(req: Request, res: Response): Promise<Response> {
+  // Mantida a versão do MeiDeSaquá (lógica de deleção já estava completa)
+  static async adminDeleteEstabelecimento(
+    req: Request,
+    res: Response
+  ): Promise<Response> {
     const { id } = req.params;
     const transaction = await sequelize.transaction();
     let pathsToDelete: string[] = [];
 
     try {
       const estabelecimentoIdNum = parseInt(id);
-       if (isNaN(estabelecimentoIdNum)) {
-          await transaction.rollback();
-         return res.status(400).json({ message: "ID do estabelecimento inválido." });
-       }
+      if (isNaN(estabelecimentoIdNum)) {
+        await transaction.rollback();
+        return res.status(400).json({ message: "ID do estabelecimento inválido." });
+      }
 
-      const estabelecimento = await Estabelecimento.findByPk(estabelecimentoIdNum, {
-          include: [{ model: ImagemProduto, as: 'produtosImg' }],
-          transaction
-      });
+      const estabelecimento = await Estabelecimento.findByPk(
+        estabelecimentoIdNum,
+        {
+          include: [{ model: ImagemProduto, as: "produtosImg" }],
+          transaction,
+        }
+      );
 
       if (!estabelecimento) {
-          await transaction.rollback();
-          return res.status(404).json({ message: "Estabelecimento não encontrado." });
+        await transaction.rollback();
+        return res
+          .status(404)
+          .json({ message: "Estabelecimento não encontrado." });
       }
 
       if (estabelecimento.logoUrl) pathsToDelete.push(estabelecimento.logoUrl);
       if (estabelecimento.ccmeiUrl) pathsToDelete.push(estabelecimento.ccmeiUrl);
       const produtosImg = (estabelecimento as any).produtosImg;
       if (produtosImg && Array.isArray(produtosImg) && produtosImg.length > 0) {
-          produtosImg.forEach((img: any) => pathsToDelete.push(img.url));
+        produtosImg.forEach((img: any) => pathsToDelete.push(img.url));
       }
 
-      await Avaliacao.destroy({ where: { estabelecimentoId: estabelecimentoIdNum }, transaction });
-      await ImagemProduto.destroy({ where: { estabelecimentoId: estabelecimentoIdNum }, transaction });
+      await Avaliacao.destroy({
+        where: { estabelecimentoId: estabelecimentoIdNum },
+        transaction,
+      });
+      await ImagemProduto.destroy({
+        where: { estabelecimentoId: estabelecimentoIdNum },
+        transaction,
+      });
       await estabelecimento.destroy({ transaction });
       await transaction.commit();
 
       for (const relativePath of pathsToDelete) {
-          try {
-              if (relativePath) {
-                const fullPath = path.resolve(process.cwd(), relativePath);
-                await fs.unlink(fullPath);
-                console.log(`Arquivo deletado: ${fullPath}`);
-              }
-          } catch (err: any) {
-              if (err.code !== 'ENOENT') {
-                console.warn(`AVISO: Falha ao deletar arquivo do disco: ${relativePath}`, err);
-              }
+        try {
+          if (relativePath) {
+            const fullPath = path.resolve(process.cwd(), relativePath);
+            await fs.unlink(fullPath);
+            console.log(`Arquivo deletado (delete admin): ${fullPath}`);
           }
+        } catch (err: any) {
+          if (err.code !== 'ENOENT') {
+            console.warn(
+              `AVISO: Falha ao deletar arquivo do disco (delete admin): ${relativePath}`,
+              err
+            );
+          }
+        }
       }
 
-      return res.status(200).json({ message: "Estabelecimento excluído permanentemente." });
-
+      return res
+        .status(200)
+        .json({ message: "Estabelecimento excluído permanentemente." });
     } catch (error: any) {
-        await transaction.rollback();
-        console.error("Falha ao excluir estabelecimento (admin):", error);
-        return res.status(500).json({ message: "Erro interno ao excluir estabelecimento." });
+      await transaction.rollback();
+      console.error("Falha ao excluir estabelecimento (admin):", error);
+      return res
+        .status(500)
+        .json({ message: "Erro interno ao excluir estabelecimento." });
     }
   }
 
-  // --- ADICIONADO: Método para Admin ver avaliações de um Estabelecimento ---
+  // Mantida a versão do MeiDeSaquá (nomes corretos)
   static async getAvaliacoesByEstabelecimento(req: Request, res: Response) {
     try {
       const { estabelecimentoId } = req.params;
@@ -626,7 +737,6 @@ export class AdminController {
         return res.status(400).json({ message: "ID do estabelecimento inválido." });
       }
 
-      // 1. Busca o estabelecimento para validar e obter o nome
       const estabelecimento = await Estabelecimento.findByPk(idNum, {
         attributes: ["estabelecimentoId", "nomeFantasia"],
       });
@@ -635,21 +745,33 @@ export class AdminController {
         return res.status(404).json({ message: "Estabelecimento não encontrado." });
       }
 
-      // 2. Busca as avaliações (sem DTO, para ver todos os dados do usuário)
       const avaliacoes = await Avaliacao.findAll({
-        where: { estabelecimentoId: idNum },
+        where: { estabelecimentoId: idNum, parentId: null }, // Busca só os pais
         include: [
           {
             model: Usuario,
             as: "usuario",
-            // Admin pode ver o email, mas não a senha
-            attributes: ["usuarioId", "nomeCompleto", "email", "username"], 
+            attributes: ["usuarioId", "nomeCompleto", "email", "username"],
           },
+          { // Inclui as respostas
+            model: Avaliacao,
+            as: "respostas",
+            required: false,
+             include: [
+              { // E o usuário da resposta
+                model: Usuario,
+                as: "usuario",
+                attributes: ["usuarioId", "nomeCompleto", "email", "username"],
+              },
+            ],
+          }
         ],
-        order: [["avaliacoesId", "DESC"]],
+        order: [
+            ["avaliacoesId", "DESC"],
+            [{ model: Avaliacao, as: "respostas" }, "avaliacoesId", "ASC"]
+        ],
       });
 
-      // 3. Retorna o estabelecimento e suas avaliações
       return res.json({ estabelecimento, avaliacoes });
     } catch (error) {
       console.error("Erro ao buscar avaliações (admin):", error);
@@ -657,14 +779,14 @@ export class AdminController {
     }
   }
 
-  // --- ADICIONADO: Método para Admin deletar qualquer avaliação ---
+  // Mantida a versão do MeiDeSaquá (correta)
   static async adminDeleteAvaliacao(req: Request, res: Response) {
     const { id } = req.params; // ID da Avaliação
     const idNum = parseInt(id);
 
-     if (isNaN(idNum)) {
-        return res.status(400).json({ message: "ID da avaliação inválido." });
-      }
+    if (isNaN(idNum)) {
+      return res.status(400).json({ message: "ID da avaliação inválido." });
+    }
 
     try {
       const avaliacao = await Avaliacao.findByPk(idNum);
@@ -673,13 +795,153 @@ export class AdminController {
         return res.status(404).json({ message: "Avaliação não encontrada." });
       }
 
-      // Admin não precisa de verificação de propriedade, apenas exclui
+      // A lógica de 'onDelete: CASCADE' na entidade Avaliacao
+      // deve tratar a exclusão das respostas filhas
       await avaliacao.destroy();
 
-      return res.status(200).json({ message: "Avaliação excluída com sucesso." });
+      return res
+        .status(200)
+        .json({ message: "Avaliação excluída com sucesso." });
     } catch (error) {
       console.error("Erro ao excluir avaliação (admin):", error);
       return res.status(500).json({ message: "Erro ao excluir a avaliação." });
+    }
+  }
+
+  // Mantida a versão do MeiDeSaquá (correta)
+  static async rejectRequest(req: Request, res: Response) {
+    const { id } = req.params;
+    const { motivoRejeicao } = req.body;
+    const transaction = await sequelize.transaction();
+    let pathsToDeleteRejeicao: string[] = [];
+
+    const motivoHtml = motivoRejeicao
+      ? `<p><strong>Motivo da Rejeição:</strong> ${motivoRejeicao}</p>`
+      : "<p>Recomendamos verificar os dados fornecidos ou entrar em contato com a Sala do Empreendedor para mais informações.</p>";
+
+    try {
+      const estabelecimento = await Estabelecimento.findByPk(id, { transaction });
+      if (!estabelecimento) {
+        await transaction.rollback();
+        return res.status(404).json({ message: "Estabelecimento não encontrado." });
+      }
+
+      let responseMessage = "Solicitação rejeitada com sucesso.";
+      let emailInfo: { subject: string; html: string } | null = null;
+      const emailParaNotificar = estabelecimento.emailEstabelecimento;
+
+      if (estabelecimento.status === StatusEstabelecimento.PENDENTE_APROVACAO) {
+        // Coleta caminhos ANTES de destruir
+        if (estabelecimento.logoUrl) pathsToDeleteRejeicao.push(estabelecimento.logoUrl);
+        if (estabelecimento.ccmeiUrl) pathsToDeleteRejeicao.push(estabelecimento.ccmeiUrl);
+        const imagensRejeicao = await ImagemProduto.findAll({
+          where: { estabelecimentoId: estabelecimento.estabelecimentoId },
+          transaction,
+        });
+        imagensRejeicao.forEach((img) =>
+          pathsToDeleteRejeicao.push(img.url)
+        );
+
+        // Deleta do DB
+        await ImagemProduto.destroy({
+          where: { estabelecimentoId: estabelecimento.estabelecimentoId },
+          transaction,
+        });
+        await Avaliacao.destroy({ // Garante que avaliações também sejam limpas
+           where: { estabelecimentoId: estabelecimento.estabelecimentoId },
+           transaction
+        });
+        await estabelecimento.destroy({ transaction });
+
+        responseMessage = "Cadastro rejeitado e removido.";
+        emailInfo = {
+          subject: "Seu cadastro no MeideSaquá foi Rejeitado",
+          html: `<h1>Olá, ${estabelecimento.nomeResponsavel}.</h1><p>Lamentamos informar que o cadastro do estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> não foi aprovado.</p>${motivoHtml}<br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>`,
+        };
+      } else if (
+        estabelecimento.status === StatusEstabelecimento.PENDENTE_ATUALIZACAO ||
+        estabelecimento.status === StatusEstabelecimento.PENDENTE_EXCLUSAO
+      ) {
+        // Coleta caminhos dos arquivos PENDENTES (em dados_atualizacao)
+        const dadosRejeitados = estabelecimento.dados_atualizacao as any;
+        if (dadosRejeitados) {
+          if (dadosRejeitados.logo) pathsToDeleteRejeicao.push(dadosRejeitados.logo);
+          if (dadosRejeitados.ccmei) pathsToDeleteRejeicao.push(dadosRejeitados.ccmei);
+          if (dadosRejeitados.produtos && Array.isArray(dadosRejeitados.produtos)) {
+            pathsToDeleteRejeicao.push(...dadosRejeitados.produtos);
+          }
+        }
+
+        const statusAnterior = estabelecimento.status;
+        estabelecimento.status = StatusEstabelecimento.ATIVO; // Volta para ativo
+        estabelecimento.dados_atualizacao = null; // Limpa os dados pendentes
+        await estabelecimento.save({ transaction });
+
+        if (statusAnterior === StatusEstabelecimento.PENDENTE_ATUALIZACAO) {
+          emailInfo = {
+            subject: "Sua solicitação de atualização no MeideSaquá foi Rejeitada",
+            html: `<h1>Olá, ${estabelecimento.nomeResponsavel}.</h1><p>Informamos que a sua solicitação para atualizar os dados do estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> não foi aprovada.</p><p>Os dados anteriores foram mantidos.</p>${motivoHtml}<br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>`,
+          };
+        } else {
+          // PENDENTE_EXCLUSAO
+          emailInfo = {
+            subject: "Sua solicitação de exclusão no MeideSaquá foi Rejeitada",
+            html: `<h1>Olá, ${estabelecimento.nomeResponsavel}.</h1><p>Informamos que a sua solicitação para remover o estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> não foi aprovada.</p><p>Seu estabelecimento continua ativo na plataforma.</p>${motivoHtml}<br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>`,
+          };
+        }
+      } else {
+        await transaction.rollback();
+        return res.status(400).json({
+          message:
+            "O estabelecimento não está em um estado pendente para rejeição.",
+        });
+      }
+
+      await transaction.commit(); // Comita as alterações no banco
+
+      // Tenta deletar os arquivos APÓS o commit
+      for (const relativePath of pathsToDeleteRejeicao) {
+        try {
+          if (relativePath) {
+            const fullPath = path.resolve(process.cwd(), relativePath);
+            await fs.unlink(fullPath);
+            console.log(`Arquivo deletado (rejeição): ${fullPath}`);
+          }
+        } catch (err: any) {
+          if (err.code !== 'ENOENT') {
+            console.warn(
+              `AVISO: Falha ao deletar arquivo do disco (rejeição): ${relativePath}`,
+              err
+            );
+          }
+        }
+      }
+
+      if (emailInfo && emailParaNotificar) {
+        try {
+          await EmailService.sendGenericEmail({
+            to: emailParaNotificar,
+            subject: emailInfo.subject,
+            html: emailInfo.html,
+          });
+          console.log(
+            `Email de rejeição enviado com sucesso para ${emailParaNotificar}`
+          );
+        } catch (error) {
+          console.error(
+            `Falha ao enviar email de rejeição para ${emailParaNotificar}:`,
+            error
+          );
+        }
+      }
+
+      return res.status(200).json({ message: responseMessage });
+    } catch (error) {
+      await transaction.rollback();
+      console.error("Erro ao rejeitar solicitação:", error);
+      return res
+        .status(500)
+        .json({ message: "Erro ao rejeitar a solicitação." });
     }
   }
 }

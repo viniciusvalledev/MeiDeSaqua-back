@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { AdminController } from "../controllers/AdminController";
 import { adminAuthMiddleware } from "../middlewares/adminAuth.middleware";
+import multer from "multer";
 
 const router = Router();
+const upload = multer();
 
 router.post("/login", AdminController.login);
 
@@ -15,6 +17,7 @@ router.post(
 router.post(
   "/edit-and-approve/:id",
   adminAuthMiddleware,
+  upload.any(),
   AdminController.editAndApproveRequest
 );
 router.post(
@@ -35,6 +38,7 @@ router.get(
 router.patch(
   "/estabelecimento/:id",
   adminAuthMiddleware,
+  upload.any(),
   AdminController.adminUpdateEstabelecimento
 );
 router.delete("/estabelecimento/:id",
