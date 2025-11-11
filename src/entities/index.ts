@@ -26,20 +26,20 @@ Estabelecimento.hasMany(ImagemProduto, {
 });
 ImagemProduto.belongsTo(Estabelecimento, { foreignKey: "estabelecimentoId" });
 
-// --- CORREÇÃO AQUI ---
+// --- ADICIONE ESTE BLOCO DE VOLTA ---
 // Avaliação <-> Avaliação (para respostas)
-// Um comentário PAI (parent_id: null) pode ter várias RESPOSTAS
+// Um comentário PAI pode ter várias RESPOSTAS
 Avaliacao.hasMany(Avaliacao, {
-  foreignKey: "parentId", // A chave estrangeira que aponta para 'avaliacoes_id'
-  as: "respostas",       // O alias que você usa no service!
-  onDelete: "CASCADE",   // Se o comentário pai for deletado, deleta as respostas
+  foreignKey: "parentId", // <-- Deve bater com o 'field' 'parent_id' na entidade
+  as: "respostas",
+  onDelete: "CASCADE",
 });
 
-// Uma RESPOSTA (parent_id: 123) pertence a um comentário PAI
+// Uma RESPOSTA pertence a um comentário PAI
 Avaliacao.belongsTo(Avaliacao, {
   foreignKey: "parentId",
-  as: "pai", // Alias para a associação inversa (boa prática)
+  as: "pai",
 });
-// --- FIM DA CORREÇÃO ---
+// --- FIM DA ADIÇÃO ---
 
 export { Usuario, Estabelecimento, Avaliacao, ImagemProduto };

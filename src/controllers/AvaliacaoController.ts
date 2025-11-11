@@ -1,72 +1,90 @@
 // src/controllers/AvaliacaoController.ts
 
-import { Request, Response } from 'express';
-import AvaliacaoService from '../services/AvaliacaoService';
+import { Request, Response } from "express";
+import AvaliacaoService from "../services/AvaliacaoService";
 
 interface AuthenticatedRequest extends Request {
-    user?: {
-        id: number;
-        username: string;
-    }
+  user?: {
+    id: number;
+    username: string;
+  };
 }
 
 class AvaliacaoController {
-    public async submeterAvaliacao(req: AuthenticatedRequest, res: Response): Promise<Response> {
-        try {
-            const usuarioLogadoId = req.user?.id; 
-            if (!usuarioLogadoId) return res.status(401).json({ message: "Não autorizado" });
+  public async submeterAvaliacao(
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<Response> {
+    try {
+      const usuarioLogadoId = req.user?.id;
+      if (!usuarioLogadoId)
+        return res.status(401).json({ message: "Não autorizado" });
 
-            // Esta é a forma correta para o novo service.
-            // O frontend enviará { nota, comentario, estabelecimentoId, parent_id? }
-            const dadosAvaliacao = req.body;
-            
-            const novaAvaliacao = await AvaliacaoService.submeterAvaliacao(dadosAvaliacao, usuarioLogadoId);
-            return res.status(201).json(novaAvaliacao);
-        } catch (error: any) {
-            return res.status(400).json({ message: error.message });
-        }
+      const dadosAvaliacao = req.body;
+
+      const novaAvaliacao = await AvaliacaoService.submeterAvaliacao(
+        dadosAvaliacao,
+        usuarioLogadoId
+      );
+      return res.status(201).json(novaAvaliacao);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
     }
+  }
 
-    public async atualizarAvaliacao(req: AuthenticatedRequest, res: Response): Promise<Response> {
-        try {
-            const usuarioLogadoId = req.user?.id;
-            const avaliacaoId = parseInt(req.params.id);
-            if (!usuarioLogadoId) return res.status(401).json({ message: "Não autorizado" });
+  public async atualizarAvaliacao(
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<Response> {
+    try {
+      const usuarioLogadoId = req.user?.id;
+      const avaliacaoId = parseInt(req.params.id);
+      if (!usuarioLogadoId)
+        return res.status(401).json({ message: "Não autorizado" });
 
-            const avaliacaoAtualizada = await AvaliacaoService.atualizarAvaliacao(avaliacaoId, req.body, usuarioLogadoId);
-            return res.json(avaliacaoAtualizada);
-        } catch (error: any) {
-            return res.status(400).json({ message: error.message });
-        }
+      const avaliacaoAtualizada = await AvaliacaoService.atualizarAvaliacao(
+        avaliacaoId,
+        req.body,
+        usuarioLogadoId
+      );
+      return res.json(avaliacaoAtualizada);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
     }
+  }
 
-    public async excluirAvaliacao(req: AuthenticatedRequest, res: Response): Promise<Response> {
-        try {
-            const usuarioLogadoId = req.user?.id;
-            const avaliacaoId = parseInt(req.params.id);
-            if (!usuarioLogadoId) return res.status(401).json({ message: "Não autorizado" });
+  public async excluirAvaliacao(
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<Response> {
+    try {
+      const usuarioLogadoId = req.user?.id;
+      const avaliacaoId = parseInt(req.params.id);
+      if (!usuarioLogadoId)
+        return res.status(401).json({ message: "Não autorizado" });
 
-            await AvaliacaoService.excluirAvaliacao(avaliacaoId, usuarioLogadoId);
-            return res.status(204).send();
-        } catch (error: any) {
-            return res.status(400).json({ message: error.message });
-        }
+      await AvaliacaoService.excluirAvaliacao(avaliacaoId, usuarioLogadoId);
+      return res.status(204).send();
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
     }
+  }
+  // MODIFICADO: Renomeado de 'listarPorProjeto' para 'listarPorEstabelecimento'
+  public async listarPorEstabelecimento(
+    req: Request,
+    res: Response
+  ): Promise<Response> {
+    try {
+      const estabelecimentoId = parseInt(req.params.id);
+      const avaliacoes = await AvaliacaoService.listarPorEstabelecimentoDTO(
+        estabelecimentoId
+      );
 
-    // MODIFICADO: Renomeado de 'listarPorProjeto' para 'listarPorEstabelecimento'
-    public async listarPorEstabelecimento(req: Request, res: Response): Promise<Response> {
-        try {
-            // MODIFICADO: Renomeado de 'projetoId' para 'estabelecimentoId'
-            const estabelecimentoId = parseInt(req.params.id);
-            
-            // MODIFICADO: Renomeado de 'listarPorProjetoDTO' para 'listarPorEstabelecimentoDTO'
-            const avaliacoes = await AvaliacaoService.listarPorEstabelecimentoDTO(estabelecimentoId);
-            
-            return res.json(avaliacoes);
-        } catch (error: any) {
-            return res.status(500).json({ message: error.message });
-        }
+      return res.json(avaliacoes);
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message });
     }
+  }
 }
 
 export default new AvaliacaoController();

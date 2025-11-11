@@ -1,7 +1,8 @@
 // ARQUIVO: src/entities/Avaliacao.entity.ts (CORRIGIDO)
 
-import { DataTypes, Model } from 'sequelize';
-import sequelize from '../config/database';
+import { DataTypes, Model } from "sequelize";
+import sequelize from "../config/database";
+import Usuario from "./Usuario.entity"; // Importação mantida caso você use em métodos de instância
 
 class Avaliacao extends Model {
   public avaliacoesId!: number;
@@ -9,50 +10,56 @@ class Avaliacao extends Model {
   public nota!: number | null;
   public usuarioId!: number;
   public estabelecimentoId!: number;
-  
-  // --- ADICIONADO ---
-  public parentId!: number | null; 
+  public parentId!: number | null;
+
+  // Tipagens para associações (definidas no index.ts)
+  public readonly respostas?: Avaliacao[];
+  public readonly pai?: Avaliacao;
+  public readonly usuario?: Usuario;
 }
 
-Avaliacao.init({
-  avaliacoesId: {
-    type: DataTypes.INTEGER,
-    autoIncrement: true,
-    primaryKey: true,
-    field: 'avaliacoes_id'
+Avaliacao.init(
+  {
+    avaliacoesId: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+      field: "avaliacoes_id",
+    },
+    comentario: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    nota: {
+      type: DataTypes.DOUBLE,
+      allowNull: true, // <-- CORRIGIDO (veio do seu 'notNull Violation' anterior)
+    },
+    usuarioId: {
+      type: DataTypes.INTEGER,
+      field: "usuario_id",
+    },
+    estabelecimentoId: {
+      type: DataTypes.INTEGER,
+      field: "estabelecimento_id",
+    },
+    parentId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: "parent_id", // O nome da coluna no banco
+      references: {
+        model: "avaliacoes", // Nome da tabela
+        key: "avaliacoes_id",
+      },
+    },
   },
-  comentario: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  nota: {
-    type: DataTypes.DOUBLE,
-    allowNull: false // A nota só é obrigatória para o comentário pai
-  },
-
-  usuarioId: {
-    type: DataTypes.INTEGER,
-    field: 'usuario_id' 
-  },
-  estabelecimentoId: {
-    type: DataTypes.INTEGER,
-    field: 'estabelecimento_id'
-  },
-
-  // --- ADICIONADO ---
-  parentId: {
-    type: DataTypes.INTEGER,
-    allowNull: true, // Permite nulo (para comentários que NÃO são respostas)
-    field: 'parent_id',
-    references: {
-      model: 'avaliacoes', // Nome da tabela
-      key: 'avaliacoes_id' // Chave primária da tabela
-    }
+  {
+    sequelize,
+    tableName: "avaliacoes",
+    timestamps: false,
   }
-}, {
-  sequelize,
-  tableName: 'avaliacoes',
-  timestamps: false
-});
+);
+
+// REMOVA AS ASSOCIAÇÕES DAQUI
+// Elas devem ficar APENAS no 'index.ts' para evitar o erro de alias duplicado
 
 export default Avaliacao;

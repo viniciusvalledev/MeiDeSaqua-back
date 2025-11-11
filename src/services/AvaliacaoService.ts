@@ -1,16 +1,13 @@
 import { Avaliacao, Estabelecimento, Usuario } from "../entities";
 import ProfanityFilter from "../utils/ProfanityFilter";
 import { containsEmoji } from "../utils/ValidationEmoji";
-import EmailService from "../utils/EmailService"; // Importação Adicionada
+import EmailService from "../utils/EmailService";
 
 class AvaliacaoService {
-  /**
-   * Submete uma avaliação principal ou uma resposta a uma avaliação existente.
-   */
   public async submeterAvaliacao(dadosAvaliacao: any, usuarioLogadoId: number) {
     const { nota, comentario, estabelecimentoId, parent_id } = dadosAvaliacao;
 
-    // Validações que se aplicam a todos (comentários E respostas)
+    // Validações (estavam corretas)
     if (!estabelecimentoId) {
       throw new Error("O ID do estabelecimento é obrigatório.");
     }
@@ -21,7 +18,6 @@ class AvaliacaoService {
       throw new Error("O comentário não pode conter emojis.");
     }
 
-    // Busca o estabelecimento (adaptado de "Projeto" para "Estabelecimento")
     const estabelecimento = await Estabelecimento.findByPk(estabelecimentoId);
     if (!estabelecimento) {
       throw new Error(
@@ -33,7 +29,7 @@ class AvaliacaoService {
 
     if (parent_id) {
       // É UMA RESPOSTA
-      notaFinal = null; // Respostas NUNCA têm nota
+      notaFinal = null; // Respostas não têm nota
 
       const parentAvaliacao = await Avaliacao.findByPk(parent_id);
       if (!parentAvaliacao) {
@@ -42,53 +38,64 @@ class AvaliacaoService {
       if (parentAvaliacao.parentId !== null) {
         throw new Error("Não é possível responder a uma resposta.");
       }
-      if (parentAvaliacao.estabelecimentoId !== estabelecimento.estabelecimentoId) {
-         throw new Error("A resposta não pertence ao mesmo estabelecimento do comentário pai.");
+      if (
+        parentAvaliacao.estabelecimentoId !== estabelecimento.estabelecimentoId
+      ) {
+        throw new Error(
+          "A resposta não pertence ao mesmo estabelecimento do comentário pai."
+        );
       }
-
     } else {
       // É UM COMENTÁRIO PRINCIPAL
       if (!nota || nota < 1 || nota > 5) {
-        throw new Error("A nota da avaliação (1 a 5) é obrigatória para um novo comentário.");
+        throw new Error(
+          "A nota da avaliação (1 a 5) é obrigatória para um novo comentário."
+        );
       }
 
-      // Verifica se o usuário já avaliou este estabelecimento
       const avaliacaoExistente = await Avaliacao.findOne({
         where: {
           usuarioId: usuarioLogadoId,
           estabelecimentoId: estabelecimentoId,
-          parent_id: null, // Importante: só impede duplicidade em comentários principais
+          parent_id: null,
         },
       });
 
       if (avaliacaoExistente) {
-        throw new Error("Este utilizador já avaliou este estabelecimento.");
+        throw new Error(
+          "Cada usuário só pode avaliar um estabelecimento uma vez."
+        );
       }
     }
 
-    // Cria a avaliação (ou resposta)
+    // --- CORREÇÃO: ADICIONE A CRIAÇÃO DO COMENTÁRIO AQUI ---
     const novaAvaliacao = await Avaliacao.create({
       nota: notaFinal, // Será 'null' para respostas
       comentario,
       estabelecimentoId,
       usuarioId: usuarioLogadoId,
-      parent_id: parent_id || null, // Salva a referência pai, se existir
+      parentId: parent_id || null, // Salva a referência pai, se existir
     });
+    // --- FIM DA CORREÇÃO ---
 
-    // --- Início da Notificação por E-mail ---
+    // --- Início da Notificação por E-mail (seu código, estava correto) ---
     try {
       const usuario = await Usuario.findByPk(usuarioLogadoId);
 
-      // Envia e-mail se o estabelecimento tiver um e-mail cadastrado e o usuário existir
       if (estabelecimento.emailEstabelecimento && usuario) {
-        const eUmaResposta = parent_id ? "uma nova resposta" : "um novo comentário";
+        const eUmaResposta = parent_id
+          ? "uma nova resposta"
+          : "um novo comentário";
         const notaTexto = notaFinal ? `(Nota: ${notaFinal}/5)` : "";
 
-        // Adapta os campos para o contexto do MeiDeSaquá
         const subject = `[MeideSaquá] Novo Comentário no seu estabelecimento: ${estabelecimento.nomeFantasia}`;
         const html = `
-          <p>Olá, ${estabelecimento.nomeResponsavel || estabelecimento.nomeFantasia},</p>
-          <p>Seu estabelecimento "<strong>${estabelecimento.nomeFantasia}</strong>" recebeu ${eUmaResposta} na plataforma MeideSaquá.</p>
+          <p>Olá, ${
+            estabelecimento.nomeResponsavel || estabelecimento.nomeFantasia
+          },</p>
+          <p>Seu estabelecimento "<strong>${
+            estabelecimento.nomeFantasia
+          }</strong>" recebeu ${eUmaResposta} na plataforma MeideSaquá.</p>
           <br>
           <p><strong>Usuário:</strong> ${usuario.username}</p>
           <p><strong>Comentário ${notaTexto}:</strong></p>
@@ -107,8 +114,6 @@ class AvaliacaoService {
         });
       }
     } catch (emailError: any) {
-      // A falha no envio do e-mail não deve interromper o fluxo principal.
-      // Apenas registramos o erro no console.
       console.error(
         `Falha ao enviar e-mail de notificação de avaliação para ${estabelecimento.emailEstabelecimento}:`,
         emailError.message
@@ -116,8 +121,15 @@ class AvaliacaoService {
     }
     // --- Fim da Notificação por E-mail ---
 
+    // Retorna o comentário/resposta que acabou de ser criado
     return novaAvaliacao;
   }
+
+  //
+  // O RESTANTE DO SEU ARQUIVO 'AvaliacaoService.ts'
+  // (atualizarAvaliacao, excluirAvaliacao, listarPorEstabelecimentoDTO)
+  // ESTAVA CORRETO.
+  //
 
   public async atualizarAvaliacao(
     avaliacaoId: number,
@@ -139,8 +151,8 @@ class AvaliacaoService {
       throw new Error("Você utilizou palavras inapropriadas.");
     }
 
-    // MODIFICADO: Lógica para nota
-    // Só permite atualizar a nota se FOR UM COMENTÁRIO PRINCIPAL (sem parent_id)
+    // MODIFICADO: Lógica para nota (DO SEU ARQUIVO ORIGINAL)
+    // Só permite atualizar a nota se FOR UM COMENTÁRIO PRINCIPAL (sem parentId)
     if (avaliacao.parentId === null && dadosAvaliacao.nota != null) {
       if (dadosAvaliacao.nota < 1 || dadosAvaliacao.nota > 5) {
         throw new Error("A nota da avaliação deve estar entre 1 e 5.");
@@ -164,19 +176,13 @@ class AvaliacaoService {
     if (avaliacao.usuarioId !== usuarioLogadoId) {
       throw new Error("Você não tem permissão para excluir esta avaliação.");
     }
-    
-    // Se a definição da entidade tiver 'onDelete: CASCADE' na associação 'respostas',
-    // isto excluirá automaticamente todas as respostas filhas.
     await avaliacao.destroy();
   }
 
-  /**
-   * Lista avaliações (principais) e suas respostas aninhadas.
-   */
   public async listarPorEstabelecimentoDTO(estabelecimentoId: number) {
     return Avaliacao.findAll({
       where: {
-        estabelecimentoId: estabelecimentoId,
+        estabelecimentoId,
         parent_id: null, // Busca APENAS comentários principais
       },
       include: [
@@ -184,33 +190,29 @@ class AvaliacaoService {
           model: Usuario,
           as: "usuario",
           attributes: {
-            // Mantém os excludes do seu arquivo original
             exclude: [
               "password",
               "email",
-              "cpf", // Assumindo que este campo exista na entidade Usuario
-              "dataNascimento", // Assumindo que este campo exista
+              "cpf",
+              "dataNascimento",
               "enabled",
               "confirmationToken",
               "resetPasswordToken",
               "resetPasswordTokenExpiry",
               "unconfirmedEmail",
-              "emailChangeToken"
+              "emailChangeToken",
             ],
           },
         },
         {
-          // Inclui as respostas aninhadas
           model: Avaliacao,
-          as: "respostas", // Requer associação definida na entidade
+          as: "respostas",
           required: false,
           include: [
             {
-              // Inclui o usuário da resposta
               model: Usuario,
               as: "usuario",
               attributes: {
-                // Exclui os mesmos campos para os usuários das respostas
                 exclude: [
                   "password",
                   "email",
@@ -221,7 +223,7 @@ class AvaliacaoService {
                   "resetPasswordToken",
                   "resetPasswordTokenExpiry",
                   "unconfirmedEmail",
-                  "emailChangeToken"
+                  "emailChangeToken",
                 ],
               },
             },
@@ -229,9 +231,8 @@ class AvaliacaoService {
         },
       ],
       order: [
-        ["avaliacoesId", "DESC"], // Comentários principais mais novos primeiro
-        // Ordena as respostas aninhadas pela data de criação (ID) ascendente
-        [{ model: Avaliacao, as: "respostas" }, "avaliacoesId", "ASC"], 
+        ["avaliacoesId", "DESC"],
+        [{ model: Avaliacao, as: "respostas" }, "avaliacoesId", "ASC"],
       ],
     });
   }
