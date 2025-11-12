@@ -18,27 +18,20 @@ const JWT_SECRET = process.env.ADMIN_JWT_SECRET;
 
 if (!ADMIN_USER || !ADMIN_PASSWORD || !JWT_SECRET) {
   console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-
   console.error("ERRO CRÍTICO: Variáveis de ambiente do Admin não definidas.");
-
   console.error(
     "Por favor, defina ADMIN_USER, ADMIN_PASSWORD, e ADMIN_JWT_SECRET"
   );
-
   console.error(
     "no seu ficheiro .env (ou .env.local) antes de iniciar o servidor."
   );
-
   console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-
   throw new Error(
     "Credenciais de administrador ou segredo JWT não configurados."
   );
 }
 
 export class AdminController {
-  // --- As funções login, getPending, e approveRequest estão corretas ---
-  // --- Nenhuma alteração nelas ---
   static async login(req: Request, res: Response) {
     const { username, password } = req.body;
 
@@ -62,7 +55,8 @@ export class AdminController {
     try {
       const includeOptions = {
         model: ImagemProduto,
-        as: "ImagemProduto", // Alias correto para a associação Estabelecimento <-> ImagemProduto
+        // ***** CORREÇÃO DO ALIAS AQUI *****
+        as: "produtosImg", // <-- Este é o alias correto
         attributes: ["url"],
       };
 
@@ -97,7 +91,8 @@ export class AdminController {
 
       const estabelecimento = await Estabelecimento.findByPk(id, {
         transaction,
-        include: [{ model: ImagemProduto, as: "ImagemProduto" }],
+        // ***** ALIAS CORRETO *****
+        include: [{ model: ImagemProduto, as: "produtosImg" }], 
       });
       if (!estabelecimento) {
         await transaction.rollback();
@@ -131,11 +126,31 @@ export class AdminController {
             const dadosParaAtualizar: Partial<Estabelecimento> & {
               [key: string]: any;
             } = {};
+
+            // ***** CORREÇÃO 1: LISTA DE CAMPOS PERMITIDOS COMPLETA *****
+            // (Agora inclui telefone, email, e todos os outros campos)
             const camposPermitidos: (keyof Estabelecimento | string)[] = [
+              "nomeFantasia",
+              "cnpj",
+              "categoria",
+              "nomeResponsavel",
+              "cpfResponsavel",
+              "cnae",
+              "emailEstabelecimento",
+              "contatoEstabelecimento", // <-- TELEFONE
+              "endereco",
+              "descricao",
+              "descricaoDiferencial",
+              "areasAtuacao",
+              "tagsInvisiveis",
+              "website",
+              "instagram",
+              "facebook",
+              "youtube",
               "descricaoDiferencial", "descricao", "objetivo", "justificativa",
-              "publicoAlvo", "impacto", "localizacao", "website", "instagram",
-              "facebook", "youtube", "tagsInvisiveis", "odsRelacionadas", "odsId", "venceuPspe",
+              "publicoAlvo", "impacto", "localizacao", "odsRelacionadas", "odsId", "venceuPspe",
             ];
+            // ***** FIM DA CORREÇÃO 1 *****
 
             for (const key of camposPermitidos) {
               if (
@@ -145,6 +160,8 @@ export class AdminController {
                 (dadosParaAtualizar as any)[key] = dadosRecebidos[key];
               }
             }
+
+            // Lógica para LOGO (Esta já estava correta)
             if (dadosRecebidos.logo) {
               const logoAntigaUrl = estabelecimento.logoUrl;
               if (logoAntigaUrl) {
@@ -158,11 +175,15 @@ export class AdminController {
               dadosParaAtualizar.logoUrl = dadosRecebidos.logo;
             }
 
+            // ***** CORREÇÃO 2: LÓGICA DE IMAGENS *****
+            // (Trocado 'imagens' por 'produtos', que é o nome correto do campo)
             if (
-              dadosRecebidos.imagens && 
-              Array.isArray(dadosRecebidos.imagens) &&
-              dadosRecebidos.imagens.length > 0
+              dadosRecebidos.produtos && 
+              Array.isArray(dadosRecebidos.produtos) &&
+              dadosRecebidos.produtos.length > 0
             ) {
+              // ***** FIM DA CORREÇÃO 2 *****
+              
               const imagensAntigas = await ImagemProduto.findAll({
                 where: { estabelecimentoId: estabelecimento.estabelecimentoId }, 
                 transaction,
@@ -182,7 +203,9 @@ export class AdminController {
                 transaction,
               });
 
-              const novasImagens = dadosRecebidos.imagens.map(
+              // ***** CORREÇÃO 2 (continuação) *****
+              const novasImagens = dadosRecebidos.produtos.map(
+              // ***** FIM DA CORREÇÃO 2 *****
                 (url: string) => ({
                   url,
                   estabelecimentoId : estabelecimento.estabelecimentoId, 
@@ -217,6 +240,7 @@ export class AdminController {
           break; 
 
         case StatusEstabelecimento.PENDENTE_EXCLUSAO:
+          // TODO: Adicionar lógica para deletar arquivos (logo, imagens) ANTES do destroy
           emailInfo = {
             subject: "Seu estabelecimento foi removido da plataforma MeideSaquá",
             html: `
@@ -228,7 +252,6 @@ export class AdminController {
               <p><strong>Equipe MeideSaquá</strong></p>
             `,
           };
-          // TODO: Adicionar lógica para deletar arquivos (logo, imagens) ANTES do destroy
           await estabelecimento.destroy({ transaction });
           responseMessage = "Estabelecimento excluído com sucesso.";
 
@@ -261,19 +284,18 @@ export class AdminController {
         .json({ message: "Erro ao aprovar a solicitação." });
     }
   }
-
   static async editAndApproveRequest(req: Request, res: Response) {
     const { id } = req.params;
     const adminEditedData = req.body; 
 
     // ***** CORREÇÃO 1: Fazer o parse do urlsParaExcluir (que vem como string JSON) *****
-    let { urlsParaExcluir } = adminEditedData; // Usa 'let' para poder modificar
+    let { urlsParaExcluir } = adminEditedData; 
     if (urlsParaExcluir && typeof urlsParaExcluir === 'string') {
         try {
             urlsParaExcluir = JSON.parse(urlsParaExcluir);
         } catch (e) {
             console.error("Falha ao parsear urlsParaExcluir em editAndApproveRequest:", e);
-            urlsParaExcluir = []; // Reseta para um array vazio em caso de erro
+            urlsParaExcluir = [];
         }
     }
     // ***** FIM DA CORREÇÃO 1 *****
@@ -283,7 +305,8 @@ export class AdminController {
     try {
       const estabelecimento = await Estabelecimento.findByPk(id, {
         transaction,
-        include: [{ model: ImagemProduto, as: "ImagemProduto" }],
+        // ***** CORREÇÃO DO ALIAS AQUI *****
+        include: [{ model: ImagemProduto, as: "produtosImg" }], // <-- Este é o alias correto
       });
 
       if (!estabelecimento) {
@@ -302,10 +325,9 @@ export class AdminController {
         // Lógica para LOGO
         
         // ***** CORREÇÃO 2: Corrigir o bug do hasOwnProperty E checar por "DELETE" *****
-        // Cenário 1: Admin marcou a logo para DELEÇÃO
         if (
-          ("logoUrl" in adminEditedData) && // <-- Correção do hasOwnProperty
-          adminEditedData.logoUrl === "DELETE" // <-- Correção da lógica (o front envia "DELETE")
+          ("logoUrl" in adminEditedData) && 
+          adminEditedData.logoUrl === "DELETE" 
         ) {
           const logoAntigaUrl = estabelecimento.logoUrl || dadosRecebidos.logo;
           if (logoAntigaUrl) {
@@ -316,11 +338,10 @@ export class AdminController {
               console.error(`AVISO: Falha ao deletar logo: ${logoAntigaUrl}`, err);
             }
           }
-          adminEditedData.logoUrl = null; // Define como null para salvar no banco
+          adminEditedData.logoUrl = null; 
         }
         // ***** FIM DA CORREÇÃO 2 *****
 
-        // Cenário 2: Admin APROVOU uma nova logo
         else if (dadosRecebidos.logo) {
           const logoAntigaUrl = estabelecimento.logoUrl; 
           if (logoAntigaUrl) {
@@ -335,7 +356,6 @@ export class AdminController {
         }
 
         // Lógica para IMAGENS
-        // Cenário 1: Admin APROVOU novas imagens
         if (
           dadosRecebidos.imagens &&
           Array.isArray(dadosRecebidos.imagens) &&
@@ -358,7 +378,6 @@ export class AdminController {
             transaction,
           });
 
-          // Agora 'urlsParaExcluir' já é um array, graças à Correção 1
           const imagensParaCriar = dadosRecebidos.imagens.filter(
             (url: string) => !(urlsParaExcluir && urlsParaExcluir.includes(url))
           );
@@ -369,10 +388,9 @@ export class AdminController {
           }));
           await ImagemProduto.bulkCreate(novasImagens, { transaction });
         }
-        // Cenário 2: NÃO havia imagens novas, mas admin deletou imagens ANTIGAS
         else if (
           urlsParaExcluir &&
-          Array.isArray(urlsParaExcluir) && // <-- Agora esta checagem funciona
+          Array.isArray(urlsParaExcluir) &&
           urlsParaExcluir.length > 0
         ) {
           const imagensParaDeletar = await ImagemProduto.findAll({
@@ -399,8 +417,7 @@ export class AdminController {
         }
       }
 
-      // Remove o 'urlsParaExcluir' (que era uma string JSON) para não salvar no DB
-      delete adminEditedData.urlsParaExcluir; 
+      delete adminEditedData.urlsParaExcluir;
 
       await estabelecimento.update(
         {
@@ -452,6 +469,7 @@ export class AdminController {
 
   static async getAllActiveEstabelecimentos(req: Request, res: Response) {
     try {
+      // Esta função chama o Service, que já está correto
       const estabelecimentos = await EstabelecimentoService.listarTodos();
       return res.json(estabelecimentos);
     } catch (error) {
@@ -462,18 +480,21 @@ export class AdminController {
     }
   }
 
+  // ***** FUNÇÃO UNIFICADA (CHAMADA PELO DASHBOARD E PÁGINA DE ATIVOS) *****
+  // Esta função agora é chamada tanto pelo Dashboard quanto pela página de Ativos
+  // e sabe o que fazer em ambos os casos.
   static async adminUpdateEstabelecimento(req: Request, res: Response) {
     const { id } = req.params;
     const adminEditedData = req.body;
     
     // ***** CORREÇÃO 1: Fazer o parse do urlsParaExcluir (que vem como string JSON) *****
-    let { urlsParaExcluir } = adminEditedData; // Usa 'let' para poder modificar
+    let { urlsParaExcluir } = adminEditedData; 
     if (urlsParaExcluir && typeof urlsParaExcluir === 'string') {
         try {
             urlsParaExcluir = JSON.parse(urlsParaExcluir);
         } catch (e) {
             console.error("Falha ao parsear urlsParaExcluir em adminUpdateEstabelecimento:", e);
-            urlsParaExcluir = []; // Reseta para um array vazio em caso de erro
+            urlsParaExcluir = [];
         }
     }
     // ***** FIM DA CORREÇÃO 1 *****
@@ -481,81 +502,180 @@ export class AdminController {
     const transaction = await sequelize.transaction();
 
     try {
-      const estabelecimento = await Estabelecimento.findByPk(id, { transaction });
+      const estabelecimento = await Estabelecimento.findByPk(id, { 
+        transaction,
+        // ***** CORREÇÃO DO ALIAS AQUI *****
+        include: [{ model: ImagemProduto, as: "produtosImg" }], // <-- Este é o alias correto
+      });
 
       if (!estabelecimento) {
         await transaction.rollback();
         return res.status(404).json({ message: "Estabelecimento não encontrado." });
       }
 
-      // 1. Lógica para Excluir LOGO
+      // ****** LÓGICA COMBINADA (para Dashboard e Ativos) ******
+      const statusOriginal = estabelecimento.status;
+      const dadosRecebidos = (estabelecimento.dados_atualizacao || {}) as any;
+      let emailInfo: { subject: string; html: string } | null = null; 
+
+      // 1. LÓGICA DE LOGO (UNIFICADA)
       // ***** CORREÇÃO 2: Corrigir o bug do hasOwnProperty E checar por "DELETE" *****
-      // (Esta era a linha 557)
       if (
-        ("logoUrl" in adminEditedData) && // <-- Correção do hasOwnProperty
-        adminEditedData.logoUrl === "DELETE" && // <-- Correção da lógica (o front envia "DELETE")
-        estabelecimento.logoUrl
+        ("logoUrl" in adminEditedData) && 
+        (adminEditedData.logoUrl === "DELETE" || adminEditedData.logoUrl === null)
       ) {
       // ***** FIM DA CORREÇÃO 2 *****
-        const logoAntigaUrl = estabelecimento.logoUrl;
-        try {
-          const filePath = path.join(__dirname, "..", "..", logoAntigaUrl);
-          await fs.unlink(filePath);
-          console.log(`Logo antiga deletada: ${logoAntigaUrl}`);
-        } catch (err) {
-          console.error(`AVISO: Falha ao deletar logo antiga: ${logoAntigaUrl}`, err);
-        }
-        adminEditedData.logoUrl = null; // Define como null para salvar no banco
-      }
-
-      // 2. Lógica para Excluir Imagens do Portfólio
-      if (
-        urlsParaExcluir &&
-        Array.isArray(urlsParaExcluir) && // <-- Agora esta checagem funciona
-        urlsParaExcluir.length > 0
-      ) {
-        const imagensParaDeletar = await ImagemProduto.findAll({
-          where: {
-            url: urlsParaExcluir, 
-            estabelecimentoId: estabelecimento.estabelecimentoId,
-          },
-          transaction,
-        });
-
-        for (const imagem of imagensParaDeletar) {
-          try {
-            const filePath = path.join(__dirname, "..", "..", imagem.url);
-            await fs.unlink(filePath); 
-            console.log(`Imagem de portfólio deletada: ${imagem.url}`);
-          } catch (err) {
-            console.error(`AVISO: Falha ao deletar imagem de portfólio: ${imagem.url}`, err);
+          const logoAntigaUrl = estabelecimento.logoUrl || dadosRecebidos.logo;
+          if (logoAntigaUrl) {
+              try {
+                  const filePath = path.join(__dirname, "..", "..", logoAntigaUrl);
+                  await fs.unlink(filePath);
+                  console.log(`Logo deletada: ${logoAntigaUrl}`);
+              } catch (err) {
+                  console.error(`AVISO: Falha ao deletar logo: ${logoAntigaUrl}`, err);
+              }
           }
-        }
-
-        await ImagemProduto.destroy({
-          where: {
-            id: imagensParaDeletar.map((img) => img.id),
-          },
-          transaction,
-        });
+          adminEditedData.logoUrl = null; 
+      } 
+      else if (
+          (statusOriginal === StatusEstabelecimento.PENDENTE_ATUALIZACAO || statusOriginal === StatusEstabelecimento.PENDENTE_APROVACAO) &&
+          dadosRecebidos.logo
+      ) {
+          // Admin está aprovando uma *nova* logo de uma pendência
+          const logoAntigaUrl = estabelecimento.logoUrl;
+          if (logoAntigaUrl) {
+              try {
+                  const filePath = path.join(__dirname, "..", "..", logoAntigaUrl);
+                  await fs.unlink(filePath);
+              } catch (err) {
+                  console.error(`AVISO: Falha ao deletar logo antiga: ${logoAntigaUrl}`, err);
+              }
+          }
+          adminEditedData.logoUrl = dadosRecebidos.logo; 
       }
 
-      delete adminEditedData.estabelecimentoId;
-      delete adminEditedData.status;
-      delete adminEditedData.ativo;
-      delete adminEditedData.dados_atualizacao;
-      delete adminEditedData.urlsParaExcluir;
+      // 2. LÓGICA DE IMAGENS DO PORTFÓLIO (UNIFICADA)
+      if (
+          (statusOriginal === StatusEstabelecimento.PENDENTE_ATUALIZACAO || statusOriginal === StatusEstabelecimento.PENDENTE_APROVACAO) &&
+          dadosRecebidos.imagens &&
+          Array.isArray(dadosRecebidos.imagens) &&
+          dadosRecebidos.imagens.length > 0
+      ) {
+          // Cenário: APROVANDO uma atualização de portfólio
+          const imagensAntigas = await ImagemProduto.findAll({
+              where: { estabelecimentoId: estabelecimento.estabelecimentoId },
+              transaction,
+          });
 
-      await estabelecimento.update(adminEditedData, { transaction });
+          for (const imagem of imagensAntigas) {
+              try {
+                  const filePath = path.join(__dirname, "..", "..", imagem.url);
+                  await fs.unlink(filePath);
+              } catch (err) { /* ... log ... */ }
+          }
+
+          await ImagemProduto.destroy({
+              where: { estabelecimentoId : estabelecimento.estabelecimentoId },
+              transaction,
+          });
+
+          const imagensParaCriar = dadosRecebidos.imagens.filter(
+              (url: string) => !(urlsParaExcluir && urlsParaExcluir.includes(url))
+          );
+
+          const novasImagens = imagensParaCriar.map((url: string) => ({
+              url,
+              estabelecimentoId: estabelecimento.estabelecimentoId,
+          }));
+          await ImagemProduto.bulkCreate(novasImagens, { transaction });
+
+      } 
+      else if (
+          urlsParaExcluir &&
+          Array.isArray(urlsParaExcluir) && 
+          urlsParaExcluir.length > 0
+      ) {
+          // Cenário: APENAS DELETANDO imagens (de um MEI ativo ou pendente)
+          const imagensParaDeletar = await ImagemProduto.findAll({
+              where: {
+                  url: urlsParaExcluir,
+                  estabelecimentoId: estabelecimento.estabelecimentoId,
+              },
+              transaction,
+          });
+
+          for (const imagem of imagensParaDeletar) {
+              try {
+                  const filePath = path.join(__dirname, "..", "..", imagem.url);
+                  await fs.unlink(filePath); 
+                  console.log(`Imagem de portfólio deletada: ${imagem.url}`);
+              } catch (err) {
+                  console.error(`AVISO: Falha ao deletar imagem de portfólio: ${imagem.url}`, err);
+              }
+          }
+
+          await ImagemProduto.destroy({
+              where: { id: imagensParaDeletar.map((img) => img.id) },
+              transaction,
+          });
+      }
+      
+      const updatePayload: any = {
+          ...adminEditedData,
+      };
+
+      if (
+          statusOriginal === StatusEstabelecimento.PENDENTE_APROVACAO ||
+          statusOriginal === StatusEstabelecimento.PENDENTE_ATUALIZACAO
+      ) {
+          updatePayload.status = StatusEstabelecimento.ATIVO;
+          updatePayload.ativo = true;
+          updatePayload.dados_atualizacao = null;
+
+          if (statusOriginal === StatusEstabelecimento.PENDENTE_APROVACAO) {
+              emailInfo = {
+                  subject: "Seu cadastro no MeideSaquá foi Aprovado!", 
+                  html: `<h1>Olá, ${estabelecimento.nomeResponsavel}!</h1> <p>Temos uma ótima notícia: o seu estabelecimento, <strong>${estabelecimento.nomeFantasia}</strong>, foi aprovado (com algumas edições do administrador) e já está visível na nossa plataforma!</p><p>Agradecemos por fazer parte da comunidade de empreendedores de Saquarema.</p><br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá.</strong></p>` 
+              };
+            } else { 
+              emailInfo = { 
+                  subject: "Sua solicitação de atualização no MeideSaquá foi Aprovada!", 
+                  html: `<h1>Olá, ${estabelecimento.nomeResponsavel}!</h1><p>A sua solicitação para atualizar os dados do estabelecimento <strong>${estabelecimento.nomeFantasia}</strong> foi aprovada (com algumas edições do administrador).</p><p>As novas informações já estão visíveis para todos na plataforma.</p><br><p>Atenciosamente,</p><p><strong>Equipe MeideSaquá</strong></p>` 
+              };
+            }
+      }
+
+      delete updatePayload.estabelecimentoId;
+      delete updatePayload.urlsParaExcluir;
+      // Precisamos checar com 'in' por causa do multer
+      if('dados_atualizacao' in updatePayload) {
+          updatePayload.dados_atualizacao = null;
+      }
+
+      await estabelecimento.update(updatePayload, { transaction });
       await transaction.commit();
 
+      if (emailInfo && estabelecimento.emailEstabelecimento) {
+        try {
+          await EmailService.sendGenericEmail({
+            to: estabelecimento.emailEstabelecimento,
+            subject: emailInfo.subject,
+            html: emailInfo.html,
+          });
+          console.log(`Email de aprovação/atualização enviado para ${estabelecimento.emailEstabelecimento}`);
+        } catch (error) {
+          console.error(`Falha ao enviar email de notificação para ${estabelecimento.emailEstabelecimento}:`, error);
+        }
+      }
+
       return res
-        .status(200)
-        .json({ message: "Estabelecimento atualizado com sucesso." });
+          .status(200)
+          .json({ message: "Estabelecimento atualizado com sucesso." });
+
     } catch (error) {
-      await transaction.rollback();
-      console.error("ERRO DURANTE A ATUALIZAÇÃO ADMIN:", error);
-      return res.status(500).json({ message: "Erro ao atualizar o estabelecimento." });
+        await transaction.rollback();
+        console.error("ERRO DURANTE A ATUALIZAÇÃO ADMIN (UNIFICADA):", error); 
+        return res.status(500).json({ message: "Erro ao atualizar o estabelecimento." });
     }
   }
 
