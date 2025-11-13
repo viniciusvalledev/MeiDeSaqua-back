@@ -31,6 +31,8 @@ class Estabelecimento extends Model {
   public nomeResponsavel!: string;
   public cpfResponsavel!: string;
   public ccmeiUrl!: string;
+  public venda!: string;
+  public escala!: string;
 }
 
 Estabelecimento.init(
@@ -136,6 +138,17 @@ Estabelecimento.init(
       type: DataTypes.TEXT,
       allowNull: true,
       field: "area_atuacao",
+    },
+    venda: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+      field: "venda",
+    },
+    escala: {
+      type: DataTypes.INTEGER, 
+      allowNull: false,        
+      defaultValue: 0,         
+      field: 'escala',         
     },
   },
   {
