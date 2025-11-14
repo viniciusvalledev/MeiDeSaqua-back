@@ -145,10 +145,8 @@ export class AdminController {
               "tagsInvisiveis",
               "website",
               "instagram",
-              "facebook",
-              "youtube",
               "descricaoDiferencial", "descricao", "objetivo", "justificativa",
-              "publicoAlvo", "impacto", "localizacao", "odsRelacionadas", "odsId", "venceuPspe",
+              "publicoAlvo", "impacto"
             ];
             // ***** FIM DA CORREÇÃO 1 *****
 
@@ -791,7 +789,7 @@ export class AdminController {
       const { estabelecimentoId } = req.params; 
 
       const estabelecimento = await Estabelecimento.findByPk(estabelecimentoId, {
-        attributes: ["estabelecimentoId", "nomeFantasia", "ods"], // Corrigido de nomeEstabelecimento
+        attributes: ["estabelecimentoId", "nomeFantasia", "categoria"], // Corrigido de nomeEstabelecimento
       });
 
       if (!estabelecimento) {
