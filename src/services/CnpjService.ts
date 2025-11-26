@@ -1,53 +1,92 @@
 import axios from "axios";
 
-// Interface para a resposta da BrasilAPI
 interface BrasilApiData {
   municipio: string;
   uf: string;
   situacao_cadastral: string;
-  porte: string; // Adicionar este campo
+  porte: string;
   opcao_pelo_mei: boolean;
 }
 
 class CnpjService {
+  // API Primária: BrasilAPI (Sem limites, mas lenta para novos CNPJs)
   private apiURL = "https://brasilapi.com.br/api/cnpj/v1/";
+
+  // API Secundária: CNPJ.ws (3 consultas/minuto, mas muito rápida para novos cadastros)
+  private fallbackURL = "https://publica.cnpj.ws/cnpj/";
 
   public async consultarCnpj(cnpj: string): Promise<BrasilApiData> {
     const cnpjLimpo = cnpj.replace(/\D/g, "");
 
-    // --- ADICIONE ESTA LINHA PARA DEPURAR ---
-    console.log(
-      `[CnpjService] CNPJ recebido: "${cnpj}", CNPJ limpo para API: "${cnpjLimpo}"`
-    );
-    // -----------------------------------------
+    console.log(`[CnpjService] Iniciando consulta. CNPJ: "${cnpjLimpo}"`);
 
     try {
+      // --- TENTATIVA 1: BRASIL API ---
+      console.log("[CnpjService] Tentando BrasilAPI (Primária)...");
       const response = await axios.get<BrasilApiData>(
         `${this.apiURL}${cnpjLimpo}`
       );
       return response.data;
     } catch (error: any) {
-      if (axios.isAxiosError(error) && error.response) {
-        if (error.response.status === 400) {
-          const errorMessage =
-            error.response.data?.message || "formato inválido";
-          throw new Error(
-            `CNPJ com ${errorMessage} Por favor, verifique os dígitos.`
-          );
+      console.warn(`[CnpjService] Falha na BrasilAPI. Tentando CNPJ.ws...`);
+
+      try {
+        // --- TENTATIVA 2: CNPJ.ws (Fallback) ---
+        const response = await axios.get(`${this.fallbackURL}${cnpjLimpo}`);
+        const data = response.data;
+
+        console.log(
+          "[CnpjService] Sucesso no CNPJ.ws. Dados brutos:",
+          JSON.stringify({
+            razao: data.razao_social,
+            simples: data.simples,
+            porte: data.porte,
+            natureza: data.natureza_juridica,
+          })
+        );
+
+        let isMei = data.simples?.mei === "S" || data.simples?.optante === true;
+
+        if (!isMei && data.simples === null) {
+          const idNatureza = data.natureza_juridica?.id?.toString();
+          const idPorte = data.porte?.id?.toString();
+
+          if (idNatureza === "2135" && idPorte === "01") {
+            console.warn(
+              "[CnpjService] AVISO: Dados do Simples/MEI indisponíveis (null). Inferindo MEI por Natureza(2135) + Porte(01)."
+            );
+            isMei = true;
+          }
         }
-        if (error.response.status === 404) {
-          throw new Error(
-            "CNPJ não encontrado na base de dados da Receita Federal."
-          );
+
+        const dadosMapeados: BrasilApiData = {
+          municipio: data.estabelecimento?.cidade?.nome,
+          uf: data.estabelecimento?.estado?.sigla,
+          situacao_cadastral:
+            data.estabelecimento?.situacao_cadastral?.toUpperCase() ||
+            "DESCONHECIDA",
+          porte: data.porte?.descricao || "DESCONHECIDO",
+          opcao_pelo_mei: isMei,
+        };
+
+        return dadosMapeados;
+      } catch (fallbackError: any) {
+        let mensagem = "Não foi possível validar este CNPJ. ";
+
+        if (axios.isAxiosError(fallbackError)) {
+          if (fallbackError.response?.status === 429) {
+            mensagem += "Muitas consultas em pouco tempo. Aguarde 1 minuto.";
+          } else if (fallbackError.response?.status === 404) {
+            mensagem +=
+              "CNPJ não encontrado em nenhuma base pública, pode haver um atraso de até 30 dias em novos registros.";
+          } else {
+            mensagem += "Erro de conexão com os serviços de validação.";
+          }
         }
+
+        console.error("[CnpjService] Erro fatal:", fallbackError.message);
+        throw new Error(mensagem);
       }
-      console.error(
-        "[CnpjService - BrasilAPI] Erro Inesperado:",
-        error.message
-      );
-      throw new Error(
-        "O serviço de consulta de CNPJ está indisponível. Tente novamente mais tarde."
-      );
     }
   }
 }
